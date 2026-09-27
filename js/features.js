@@ -417,7 +417,7 @@
     var tabs = '<div class="seg" id="acTabs"><button data-v="login" class="' + (tab === 'login' ? 'on' : '') + '">登录</button><button data-v="signup" class="' + (tab === 'signup' ? 'on' : '') + '">注册</button><button data-v="forgot" class="' + (tab === 'forgot' ? 'on' : '') + '">忘记密码</button></div>';
     var body = tab === 'signup'
       ? field('邮箱', '<input id="acEmail" type="email" autocomplete="email" placeholder="用于确认账号和找回密码">') + field('密码（至少 6 位）', '<input id="acPw" type="password" autocomplete="new-password">') +
-        field('昵称', '<input id="acNick" placeholder="会显示在你上传的机位上">') + field('个人主页（可选）', '<input id="acHome" placeholder="如小红书主页链接，机位上会署名并链接到这里">') +
+        field('昵称', '<input id="acNick" placeholder="会显示在你上传的机位上">') + field('个人主页（可选）', '<input id="acHome" placeholder="可以直接粘贴小红书的分享文案，会自动取出链接">') +
         '<div class="btn-row"><button class="btn-main" data-act="signup">注册</button></div><p class="muted">注册后会收到一封确认邮件，点里面的链接就完成了（没收到的话看看垃圾箱）。</p>'
       : tab === 'forgot'
       ? field('注册时用的邮箱', '<input id="acEmail" type="email" autocomplete="email">') + '<div class="btn-row"><button class="btn-main" data-act="forgot">发送重置密码邮件</button></div>'

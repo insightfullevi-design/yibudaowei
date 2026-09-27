@@ -18,6 +18,8 @@
     var m = String(msg || '');
     var map = [
       [/Invalid login credentials/i, '邮箱或密码不对'],
+      [/Error sending (confirmation|magic link|invite)? ?email/i, '确认邮件没能发出去（网站发信设置还没配好），请稍后再试'],
+      [/Error sending recovery email/i, '重置邮件没能发出去（网站发信设置还没配好），请稍后再试'],
       [/Email not confirmed/i, '邮箱还没确认：请先去邮箱点确认链接（也看看垃圾箱）'],
       [/User already registered/i, '这个邮箱已经注册过了，直接登录或找回密码'],
       [/Password should be at least/i, '密码至少 6 位'],
@@ -55,7 +57,10 @@
   }
 
   // ---------- 账号 ----------
+  // 从小红书分享文案里只取出网址（“我在小红书收获了……http://xhslink.com/xxx 复制本条信息……”）
+  function pickUrl(t) { var m = String(t || '').match(/https?:\/\/[^\s，。！]+/); return m ? m[0] : String(t || '').trim(); }
   function signUp(email, password, nickname, homepage) {
+    homepage = pickUrl(homepage);
     return req('/auth/v1/signup?redirect_to=' + encodeURIComponent(SITE), { method: 'POST', auth: false,
       body: JSON.stringify({ email: email, password: password, data: { nickname: nickname, homepage: homepage || '' } }) })
       .then(function (r) {
@@ -94,6 +99,7 @@
   function me() { return session && session.user; }
   function profile(uid) { return req('/rest/v1/profiles?id=eq.' + uid + '&select=*', { auth: false }).then(function (r) { return r && r[0]; }); }
   function saveProfile(p) {
+    if (p.homepage != null) p.homepage = pickUrl(p.homepage);
     p.id = me().id; // 资料不存在就新建，存在就更新
     return fresh().then(function () { return req('/rest/v1/profiles', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(p) }); });
   }
