@@ -354,6 +354,7 @@
         store.checkins = cks.map(ckFromRow);
         store.spots.forEach(function (sp) { JW.addSpot(sp); });
         applyCheckins(); JW.drawMarkers();
+        window.dispatchEvent(new Event('jw-data'));
       });
     }).catch(function (e) { JW.toast('云端数据暂时没加载出来：' + e.message, 4000); });
   }
@@ -370,7 +371,43 @@
     if (line) g.fillText(line, x, y);
     return y + lh;
   }
-  function drawShare(s, photo) {
+  // 画品牌标志：取景四角 + 视锥 + 时间点
+  function drawLogo(g, x, y, size) {
+    var k = size / 160;
+    g.save(); g.translate(x, y); g.scale(k, k);
+    g.strokeStyle = '#2A2521'; g.lineWidth = 10; g.lineCap = 'round'; g.lineJoin = 'round';
+    [[24, 50, 24, 24, 50, 24], [110, 24, 136, 24, 136, 50], [136, 110, 136, 136, 110, 136], [50, 136, 24, 136, 24, 110]].forEach(function (p) { g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(p[2], p[3]); g.lineTo(p[4], p[5]); g.stroke(); });
+    g.fillStyle = '#D98C2B'; g.beginPath(); g.moveTo(80, 108); g.lineTo(56, 60); g.arc(80, 108, 54, Math.PI + 1.107, 2 * Math.PI - 1.107); g.closePath(); g.fill();
+    g.fillStyle = '#2A2521'; g.beginPath(); g.arc(80, 108, 11, 0, 7); g.fill();
+    g.fillStyle = '#2B3A67'; g.beginPath(); g.arc(112, 46, 8, 0, 7); g.fill();
+    g.restore();
+  }
+  // 通用分享面板：预览图 + 一句话（可改）+ 分享 / 保存 / 复制链接
+  function sharePanel(opt) {
+    JW.openSheet('<span class="tag skill">分享</span><h2>' + JW.esc(opt.title) + '</h2>' +
+      '<label class="field"><span>一句话（会印在卡片上，可以改）</span><input id="shLine" maxlength="40" value="' + JW.esc(opt.line || '') + '"></label>' +
+      '<div class="cmp-preview"><img id="shareImg" alt="分享卡片"></div>' +
+      '<div class="btn-row"><button class="btn-main" data-act="share">分享给朋友</button><button class="btn-ghost" data-act="dl">保存图片</button><button class="btn-ghost" data-act="copy">复制链接</button></div>' +
+      '<p class="muted">卡片上有照片、一句话、标志、产品名和二维码，扫码直接打开' + (opt.what || '这个机位') + '。在微信里可以长按图片保存或转发。</p>');
+    var cur = null;
+    function render() { opt.draw($('shLine').value.trim()).then(function (u) { cur = u; var im = $('shareImg'); if (im) im.src = u; }).catch(function () { JW.toast('卡片生成失败'); }); }
+    $('shLine').addEventListener('change', render); render();
+    function blob() { var b = atob(cur.split(',')[1]), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return new File([a], opt.file, { type: 'image/jpeg' }); }
+    function save() { var a = document.createElement('a'); a.href = cur; a.download = opt.file; document.body.appendChild(a); a.click(); a.remove(); }
+    function copy() { (navigator.clipboard ? navigator.clipboard.writeText(opt.link) : Promise.reject()).then(function () { JW.toast('链接已复制'); }).catch(function () { prompt('复制这个链接', opt.link); }); }
+    JW.bindSheet(function (act) {
+      if (!cur) return JW.toast('卡片还在生成，稍等一下');
+      if (act === 'dl') save();
+      if (act === 'copy') copy();
+      if (act === 'share') {
+        var text = ($('shLine').value.trim() || opt.title) + ' ' + opt.link, f = blob();
+        if (navigator.canShare && navigator.canShare({ files: [f] })) navigator.share({ files: [f], title: opt.title, text: text }).catch(function () {});
+        else if (navigator.share) navigator.share({ title: opt.title, text: text, url: opt.link }).catch(function () {});
+        else { save(); copy(); JW.toast('已保存卡片并复制链接，可以发给朋友了'); }
+      }
+    });
+  }
+  function drawShare(s, photo, line) {
     var W = 1080, IH = 810, H = 1500, c = document.createElement('canvas'); c.width = W; c.height = H;
     var g = c.getContext('2d'), F = '"PingFang SC","Microsoft YaHei",sans-serif', col = JW.COLORS[s.type] || '#D98C2B';
     g.fillStyle = '#F6F1E7'; g.fillRect(0, 0, W, H);
@@ -387,32 +424,26 @@
       g.fillStyle = '#6B625A'; g.font = '30px ' + F;
       var meta = [s.area, s.heading != null ? '镜头朝向 ' + Math.round(s.heading) + '°' : '镜头朝天', s.author ? '作者 ' + s.author.name : ''].filter(Boolean).join(' · ');
       g.fillText(meta, 56, y + 6); y += 62;
-      g.fillStyle = '#2A2521'; g.font = '32px ' + F; y = wrapText(g, s.summary || '', 56, y, W - 112 - 260, 46, 4);
+      g.fillStyle = '#2A2521'; g.font = '32px ' + F; y = wrapText(g, line != null && line !== '' ? line : (s.summary || ''), 56, y, W - 112 - 260, 46, 4);
       var t = s.technique || {}, tips = [t.lens, t.post, ({ day: '需要白天', golden: '黄金时刻最佳', night: '夜景', any: '随时可拍' })[s.light]].filter(Boolean).slice(0, 3);
       g.font = '600 28px ' + F; var x = 56; y = Math.max(y + 10, H - 250);
       tips.forEach(function (tp) { var w = g.measureText(tp).width + 36; if (x + w > W - 330) return; g.fillStyle = '#FFFDF8'; g.strokeStyle = '#E4DCCF'; g.lineWidth = 2; g.beginPath(); g.rect(x, y - 36, w, 52); g.fill(); g.stroke(); g.fillStyle = '#2A2521'; g.fillText(tp, x + 18, y); x += w + 12; });
-      g.fillStyle = '#2A2521'; g.font = '800 40px ' + F; g.fillText(window.JW_CONFIG.BRAND || '移步到位', 56, H - 100);
-      g.fillStyle = '#6B625A'; g.font = '28px ' + F; g.fillText(window.JW_CONFIG.SLOGAN || '', 56, H - 56);
+      drawLogo(g, 50, H - 150, 96); g.fillStyle = '#2A2521'; g.font = '800 40px ' + F; g.fillText(window.JW_CONFIG.BRAND || '移步到位', 160, H - 96);
+      g.fillStyle = '#6B625A'; g.font = '28px ' + F; g.fillText(window.JW_CONFIG.SLOGAN || '', 160, H - 56);
       window.QR.draw(g, spotLink(s), W - 296, H - 330, 250, '#2A2521', '#FFFDF8');
       g.fillStyle = '#6B625A'; g.font = '24px ' + F; g.textAlign = 'center'; g.fillText('扫码导航到这个机位', W - 171, H - 50); g.textAlign = 'left';
       return c.toDataURL('image/jpeg', 0.9);
     });
   }
   function openShare(s, photo) {
-    JW.openSheet('<span class="tag ' + s.type + '">分享卡片</span><h2>' + JW.esc(s.name) + '</h2><div class="cmp-preview"><img id="shareImg" alt="分享卡片"></div>' +
-      '<div class="btn-row"><button class="btn-main" data-act="dl">保存图片</button><button class="btn-ghost" data-act="copy">复制链接</button></div>' +
-      '<p class="muted">手机上也可以长按图片保存。扫卡片上的二维码，会直接打开这个机位。</p>');
-    drawShare(s, photo || s.cover).then(function (u) { var im = $('shareImg'); if (im) im.src = u; }).catch(function () { JW.toast('卡片生成失败'); });
-    JW.bindSheet(function (act) {
-      if (act === 'dl') { var a = document.createElement('a'); a.href = $('shareImg').src; a.download = s.name + '-移步到位.jpg'; document.body.appendChild(a); a.click(); a.remove(); }
-      if (act === 'copy') { var link = spotLink(s); (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(function () { JW.toast('链接已复制'); }).catch(function () { prompt('复制这个链接', link); }); }
-    });
+    sharePanel({ title: s.name, line: s.summary || '', link: spotLink(s), file: s.name + '-移步到位.jpg', what: '这个机位',
+      draw: function (line) { return drawShare(s, photo || s.cover, line); } });
   }
 
   // ---------------- 账号：登录、注册、找回密码、个人资料 ----------------
   function openAccount(tab, hint) {
     if (!CLOUD) return JW.toast('云端还没接好，暂时只能保存在本机');
-    if (Cloud.me() && tab !== 'reset') return openProfile();
+    if (Cloud.me() && tab !== 'reset') return goProfile();
     tab = tab || 'login';
     var tabs = '<div class="seg" id="acTabs"><button data-v="login" class="' + (tab === 'login' ? 'on' : '') + '">登录</button><button data-v="signup" class="' + (tab === 'signup' ? 'on' : '') + '">注册</button><button data-v="forgot" class="' + (tab === 'forgot' ? 'on' : '') + '">忘记密码</button></div>';
     var body = tab === 'signup'
@@ -480,7 +511,8 @@
       });
     }).catch(function (e) { JW.toast(e.message, 4000); });
   }
-  function afterLogin() { refreshAccountBtn(); loadCloud().then(function () { openProfile(); }); }
+  function goProfile() { if (window.Views) window.Views.show('profile'); else openProfile(); }
+  function afterLogin() { refreshAccountBtn(); loadCloud().then(function () { goProfile(); }); }
   function refreshAccountBtn() {
     var b = $('btnAccount'); if (!b) return;
     if (!CLOUD) { b.style.display = 'none'; return; }
@@ -493,7 +525,6 @@
     store.spots.forEach(function (s) { JW.addSpot(s); });
     Object.keys(JW.spotById).forEach(function (id) { var s = JW.spotById[id]; s._baseCheckins = s.checkins || 0; });
     applyCheckins(); JW.drawMarkers();
-    var ab = $('btnAccount'); if (ab) ab.addEventListener('click', function () { openAccount(); });
     refreshAccountBtn();
     var hashSpot = (location.hash.match(/spot=([^&]+)/) || [])[1];
     var auth = CLOUD ? Cloud.consumeHash() : null;
@@ -504,7 +535,7 @@
     }) : Promise.resolve(null);
     ready.then(function (a) {
       if (a && a.type === 'recovery') return openSetPassword();
-      if (a && (a.type === 'signup' || a.type === 'magiclink' || a.type === 'invite')) { JW.toast('邮箱已确认，欢迎加入！'); return openProfile(); }
+      if (a && (a.type === 'signup' || a.type === 'magiclink' || a.type === 'invite')) { JW.toast('邮箱已确认，欢迎加入！'); return goProfile(); }
       if (hashSpot) { var id = decodeURIComponent(hashSpot); if (JW.spotById[id]) JW.openSpot(id); else JW.toast('这个机位找不到了，可能已被作者删除'); }
     });
     $('camClose').addEventListener('click', closeCamera);
@@ -513,6 +544,8 @@
     $('btnUpload').addEventListener('click', openUpload);
   }
   window.JWX = { camera: openCamera, checkin: openCheckin, openMine: openMine, openUpload: openUpload, openCompare: openCompare, readExif: readExif, drawCompare: drawCompare,
-    share: openShare, drawShare: drawShare, account: openAccount };
+    share: openShare, drawShare: drawShare, account: openAccount, sharePanel: sharePanel, drawLogo: drawLogo, loadImg: loadImg, refSrc: refSrc,
+    wrapText: wrapText, spotLink: spotLink, get store() { return store; }, myId: myId, loadCloud: function () { return CLOUD ? loadCloud() : Promise.resolve(); },
+    refreshAccountBtn: function () { refreshAccountBtn(); }, isCloud: CLOUD };
   if (window.JW && window.JW.ready) init(); else window.addEventListener('jw-ready', init, { once: true });
 })();
