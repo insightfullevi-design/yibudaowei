@@ -284,7 +284,7 @@
       }
       rest.forEach(function (x, i) { perm(arr.concat([x]), rest.slice(0, i).concat(rest.slice(i + 1))); });
     })([], spots);
-    var order = best ? best.arr : spots;
+    var order = r.fixedOrder ? spots : (best ? best.arr : spots);
     var t = A.dayTimes(now, order[0].lat, order[0].lng);
     var stay = 25 * 60000, plan = [], cursor;
     var lastIdx = order.length - 1;
@@ -321,7 +321,7 @@
       '<div class="cond ' + (p.tooLate ? 'bad' : 'ok') + '"><span class="dot"></span><div>' +
       (p.tooLate ? '今天已经赶不上最佳节奏了，建议明天 ' + hm(p.times[0]) + ' 左右出发。' : '按今天的日落时间（' + hm(p.dayTimes.sunset) + '）倒推，建议 ' + hm(p.times[0]) + ' 出发。') +
       (p.warn ? '<br>' + esc(p.warn) : '') + '</div></div>' +
-      '<h3>自动排好的顺序</h3><p class="muted">系统按每个机位的光线条件排序：需要白天的先拍，黄金时刻卡在日落前，夜景留到最后。</p>' +
+      (r.fixedOrder ? '<h3>推荐顺序</h3><p class="muted">这条路线的顺序由地形决定（全程下坡），不按光线重排。</p>' : '<h3>自动排好的顺序</h3><p class="muted">系统按每个机位的光线条件排序：需要白天的先拍，黄金时刻卡在日落前，夜景留到最后。</p>') +
       '<div class="timeline">' + tl + '</div>' +
       '<div class="btn-row"><button class="btn-main" data-act="first">从第一站开始</button></div>'
     );

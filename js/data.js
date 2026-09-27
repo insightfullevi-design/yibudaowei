@@ -131,6 +131,120 @@ window.JW_DATA = {
       source: '小红书网友笔记整理，待实拍核实'
     },
 
+
+    // ---- 你收集的案例（坐标为估算，文字为网友笔记整理，待核实） ----
+    {
+      id: 'shizilin', type: 'classic', area: '苏州', collection: 'film',
+      name: '狮子林·女儿国花窗', lng: 120.6366, lat: 31.3266, heading: null, fov: 70,
+      cover: null, coverHint: '两个人扒着花窗往外看',
+      summary: '86 版《西游记》女儿国一幕的取景地，两人扒着八角花窗往外看，就是经典同款。',
+      scene: { source: '影视名场面', work: '西游记（1986）', moment: '女儿国：八戒和悟空扒着花窗偷看', line: '', storyPlace: '女儿国', realPlace: '苏州狮子林' },
+      technique: { pose: '两人一高一低贴近花窗，表情夸张', lens: '主摄 1 倍，从窗外拍', facing: '正对花窗', post: '', prop: '' },
+      light: 'day', lightNote: '园林白天开放。',
+      access: { fee: '景区门票', booking: '热门时段建议提前购票', hours: '以景区公告为准' },
+      guide: [{ text: '进入狮子林景区后找到带八角花窗的回廊（具体位置待实拍补充）' }],
+      crowd: '网友反馈：遇到好几波来打卡同款的游客', status: { ok: true, date: '', note: '点赞 2735、收藏 1931' },
+      source: '小红书网友笔记整理，待核实'
+    },
+    {
+      id: 'gugong', type: 'classic', area: '北京', collection: 'film',
+      name: '故宫长泰门·翠果打嘴', lng: 116.4061, lat: 39.9262, heading: null, fov: 70,
+      cover: null, coverHint: '宫墙下一跪一站',
+      summary: '在故宫红墙石灯旁复刻《甄嬛传》名场面。注意：剧中宫殿戏多在横店拍摄，这里是“同款场景”复刻。',
+      scene: { source: '影视名场面', work: '甄嬛传', moment: '华妃命翠果掌嘴', line: '翠果，打烂她的嘴', storyPlace: '后宫长街', realPlace: '拍摄地多在横店明清宫苑；故宫为同款场景' },
+      technique: { pose: '一人跪、一人伸手指着，其余人站成一排', lens: '主摄 1 倍', facing: '侧对红墙', post: '可加台词字幕', prop: '旗装或汉服更有感觉' },
+      light: 'day', lightNote: '故宫白天开放，需预约门票。',
+      access: { fee: '故宫门票', booking: '需提前实名预约', hours: '以故宫博物院公告为准，周一通常闭馆' },
+      guide: [{ text: '进入故宫后前往长泰门一带（路线待补充）' }],
+      crowd: '游客多，注意不要影响他人通行', status: { ok: true, date: '', note: '点赞 2629、收藏 1670' },
+      source: '小红书网友笔记整理，待核实'
+    },
+    {
+      id: 'daguanyuan', type: 'classic', area: '北京', collection: 'film',
+      name: '北京大观园·圆明园避暑外景', lng: 116.3658, lat: 39.8788, heading: null, fov: 70,
+      cover: null, coverHint: '剧中“圆明园”名场面',
+      summary: '《甄嬛传》里“圆明园避暑”的外景在这里，也是《红楼梦》《还珠格格》的取景地。可以跟着剧情顺序打卡。',
+      scene: { source: '影视名场面', work: '甄嬛传', moment: '圆明园避暑的多场外景', line: '', storyPlace: '圆明园', realPlace: '北京大观园' },
+      technique: {}, light: 'day', lightNote: '',
+      access: { fee: '景区门票', booking: '', hours: '以景区公告为准' },
+      guide: [], crowd: '', status: { ok: true, date: '', note: '可按剧情顺序串成路线' },
+      source: '小红书网友笔记整理，待核实'
+    },
+    {
+      id: 'heyuan', type: 'classic', area: '扬州', collection: 'film',
+      name: '何园片石山房·李玉湖同款', lng: 119.4538, lat: 32.3925, heading: null, fov: 70,
+      cover: null, coverHint: '回廊栏杆边坐着的李玉湖',
+      summary: '《上错花轿嫁对郎》李玉湖的机位集中在片石山房，反派的机位在蝴蝶厅和复道回廊。',
+      scene: { source: '影视名场面', work: '上错花轿嫁对郎', moment: '李玉湖坐在回廊栏杆边', line: '', storyPlace: '', realPlace: '扬州何园' },
+      technique: { pose: '侧坐回廊美人靠，双手放膝上', lens: '主摄 1 倍', facing: '侧面平拍', post: '', prop: '汉服或旗袍' },
+      light: 'day', lightNote: '', access: { fee: '景区门票', booking: '', hours: '以景区公告为准' },
+      guide: [{ text: '进入何园后前往片石山房（具体路线待补充）' }],
+      crowd: '人略多', status: { ok: true, date: '', note: '' }, source: '小红书网友笔记整理，待核实'
+    },
+    {
+      id: 'rome', type: 'classic', area: '罗马', collection: 'textbook',
+      name: '斗兽场·历史课本封面同款', lng: 12.4970, lat: 41.8978, heading: 100, fov: 70,
+      cover: null, coverHint: '举着课本对齐斗兽场',
+      summary: '人教版高中历史《中外历史纲要（下）》封面就是斗兽场。举起课本对齐实景，还能参与“地球 online”藏书接力。',
+      scene: { source: '课本封面', work: '高中历史必修《中外历史纲要（下）》', moment: '封面：罗马斗兽场', line: '', storyPlace: '', realPlace: '意大利罗马斗兽场' },
+      technique: { pose: '手举课本挡住半个画面，让封面和实景重合', lens: '主摄 1 倍', facing: '面朝斗兽场', post: '', prop: '课本' },
+      light: 'day', lightNote: '', access: { fee: '外观免费', booking: '', hours: '全天' },
+      guide: [{ text: '地铁 Colosseo 站出站，过马路' }, { text: '右手边围栏标语后面，正对斗兽场的位置就是机位' }],
+      crowd: '', status: { ok: true, date: '', note: '藏书接力：网友反馈书“还在”' }, source: '小红书网友笔记整理，待核实'
+    },
+    {
+      id: 'london', type: 'classic', area: '伦敦', collection: 'textbook',
+      name: '威斯敏斯特桥·英语课本大本钟', lng: -0.1154, lat: 51.5068, heading: 270, fov: 70,
+      cover: null, coverHint: '举着英语书和大本钟同框',
+      summary: '英语课本封面上的大本钟。桥上靠近大本钟一侧的第一个救生圈里、桥下报亭附近的救生圈柜子里，都有接力藏书。',
+      scene: { source: '课本封面', work: '英语课本', moment: '封面：大本钟', line: '', storyPlace: '', realPlace: '伦敦威斯敏斯特桥' },
+      technique: { pose: '人站侧面，课本举在胸前与大本钟同框', lens: '主摄 1 倍', facing: '面朝大本钟', post: '', prop: '课本' },
+      light: 'day', lightNote: '', access: { fee: '免费', booking: '', hours: '全天' },
+      guide: [{ text: '走上威斯敏斯特桥，靠近大本钟这一侧' }, { text: '找第一个救生圈，接力的书就在里面' }],
+      crowd: '', status: { ok: true, date: '', note: '藏书接力进行中' }, source: '小红书网友笔记整理，待核实'
+    },
+    {
+      id: 'zootopia', type: 'skill', area: '上海迪士尼', collection: '',
+      name: '疯狂动物城·大裤衩绿门', lng: 121.6707, lat: 31.1481, heading: null, fov: 80,
+      cover: null, coverHint: '绿色大门前的站位',
+      summary: '疯狂动物城园区的出片点合集：大裤衩绿门、小鼠门口敲门、绿色大椅子、红绿灯……人少的红绿灯随便挑。',
+      scene: null,
+      technique: { pose: '站着或坐着都行；小鼠门口可以做敲门动作', lens: '广角 0.5 倍', facing: '正对门面', post: '', prop: '' },
+      light: 'day', lightNote: '', access: { fee: '乐园门票', booking: '', hours: '以乐园公告为准' },
+      guide: [{ text: '进入疯狂动物城园区，入口处走几十米就能看到绿色大椅子' }, { text: '警局里的点位需要排队进入' }],
+      crowd: '部分点位需排队', status: { ok: true, date: '', note: '点赞 1306、收藏 1078' }, source: '小红书网友笔记整理，待核实'
+    },
+    {
+      id: 'eling', type: 'skill', area: '重庆', collection: '',
+      name: '鹅岭公园·起点', lng: 106.5487, lat: 29.5562, heading: null, fov: 70,
+      cover: null, coverHint: '鹅岭公园门口',
+      summary: '“鹅岭 → 贰厂 → 李子坝”全程下坡的第一站。',
+      technique: {}, light: 'day', lightNote: '鹅岭栈桥每周一维保停运。',
+      access: { fee: '', booking: '', hours: '栈桥每周一停运' },
+      guide: [{ text: '鹅岭站 1 号口出来' }, { text: '出来爬梯子左转' }, { text: '上到马路直走，继续走就到公园门口' }],
+      crowd: '', status: { ok: true, date: '', note: '' }, source: '小红书网友笔记整理，待核实'
+    },
+    {
+      id: 'erchang', type: 'skill', area: '重庆', collection: '',
+      name: '贰厂文创园', lng: 106.5439, lat: 29.5585, heading: null, fov: 70,
+      cover: null, coverHint: '贰厂红砖楼',
+      summary: '从鹅岭公园出来左走，沿马路走到底就到。', technique: {}, light: 'any', lightNote: '',
+      access: { fee: '免费', booking: '', hours: '' },
+      guide: [{ text: '公园出来左走' }, { text: '沿马路走到底' }],
+      crowd: '', status: { ok: true, date: '', note: '' }, source: '小红书网友笔记整理，待核实'
+    },
+    {
+      id: 'liziba', type: 'skill', area: '重庆', collection: '',
+      name: '李子坝·轻轨穿楼', lng: 106.5480, lat: 29.5603, heading: null, fov: 70,
+      cover: null, coverHint: '轻轨从楼里穿过',
+      summary: '要拍到列车正好穿楼，需要在观景平台等车来；平台人很多，提前占位。',
+      technique: { pose: '在观景平台举手机等列车进楼', lens: '主摄或 2 倍', facing: '正对穿楼的轨道', post: '', prop: '' },
+      light: 'day', lightNote: '需要等列车经过，按班次间隔耐心等。',
+      access: { fee: '免费', booking: '', hours: '' },
+      guide: [{ text: '出贰厂到马路，酸奶牛旁边往下走' }, { text: '酒店右转，过闸机左转，下楼梯右转' }, { text: '一路下坡到李子坝轻轨站，站内 1 号口出，跟着“观景平台”指示走' }],
+      crowd: '观景平台人多', status: { ok: true, date: '', note: '点赞 1344、收藏 1548' }, source: '小红书网友笔记整理，待核实'
+    },
+
     // ---- 名场面复刻：人民币里的中国（没有照片时显示“等你来复刻第一张”） ----
     { id: 'rmb20', type: 'classic', area: '桂林', collection: 'rmb', scene: { source: '人民币图案', work: '第五套人民币', moment: '20 元背面图案', storyPlace: '', realPlace: '漓江' }, name: '20 元背面·漓江', lng: 110.5270, lat: 24.9260, heading: null, fov: 70, cover: null, coverHint: '等你来复刻第一张', summary: '对应第五套人民币 20 元背面图案的实景。', technique: {}, light: 'day', lightNote: '', access: { fee: '', booking: '', hours: '' }, guide: [], status: { ok: null, date: '', note: '待认领' }, source: '坐标为估算，待核实' },
     { id: 'rmb1', type: 'classic', area: '杭州', collection: 'rmb', scene: { source: '人民币图案', work: '第五套人民币', moment: '1 元背面图案', storyPlace: '', realPlace: '三潭印月' }, name: '1 元背面·三潭印月', lng: 120.1520, lat: 30.2440, heading: null, fov: 70, cover: null, coverHint: '等你来复刻第一张', summary: '对应第五套人民币 1 元背面图案的实景。', technique: {}, light: 'day', lightNote: '', access: { fee: '', booking: '', hours: '' }, guide: [], status: { ok: null, date: '', note: '待认领' }, source: '坐标为估算，待核实' },
@@ -140,11 +254,18 @@ window.JW_DATA = {
   ],
 
   collections: {
-    film: { name: '上海影视取景地', desc: '剧里的名场面，就在你每天路过的街角。' },
+    film: { name: '影视取景地', desc: '剧里的名场面，就在你路过的街角。' },
+    textbook: { name: '课本里的世界', desc: '举起课本，对齐封面上的那个远方。' },
     rmb: { name: '人民币里的中国', desc: '集齐 5 张，点亮全国地图。' }
   },
 
   routes: [
+    {
+      id: 'chongqing', name: '鹅岭 → 贰厂 → 李子坝：全程下坡不废腿',
+      spotIds: ['eling', 'erchang', 'liziba'], fixedOrder: true,
+      advice: '按这个方向走全程下坡、树荫多；反着走就是一路爬坡。每周一鹅岭栈桥停运。',
+      constraints: []
+    },
     {
       id: 'bund-north', name: '北外滩出片线：下午出发，天黑前拍完镜面',
       spotIds: ['bench', 'mirror', 'lounge'],
