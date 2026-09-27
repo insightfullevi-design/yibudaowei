@@ -41,7 +41,7 @@ button { font: inherit; cursor: pointer; }
 }
 .chips button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
 
-#map { position: fixed; inset: 0; z-index: 1; }
+#map { position: fixed !important; top: 0; left: 0; right: 0; bottom: 0; width: 100% !important; height: 100% !important; z-index: 1; }
 
 .btn-ghost {
   border: 1px solid var(--line); background: var(--card); border-radius: 999px;
