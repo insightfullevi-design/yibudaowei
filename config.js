@@ -8,6 +8,12 @@ window.JW_CONFIG = {
   BRAND: '移步到位',
   SLOGAN: '导航到最美的拍照机位',
 
+  // 云端数据库（Supabase）：网址和公开密钥（公开密钥本来就会出现在网页里，可以放心写在这里）
+  SUPABASE_URL: 'https://aceuwtcthzawmumbohfd.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_FFeIAlsz6Ewr_aIM7w_GEw_-GPDsS5-',
+  // 网页的正式网址：确认邮件、重置密码邮件、分享二维码都指向这里
+  SITE_URL: 'https://insightfullevi-design.github.io/yibudaowei/',
+
   // 打开网页时地图的中心（北外滩和陆家嘴之间）和缩放级别，一般不用改
   CENTER: [121.5055, 31.2475],
   ZOOM: 15

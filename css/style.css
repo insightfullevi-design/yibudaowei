@@ -243,3 +243,9 @@ details.more summary { cursor: pointer; font-size: 14px; color: var(--ink-2); }
 .cam-alpha { color: #fff; font-size: 13px; display: flex; gap: 10px; align-items: center; }
 .cam-alpha input { accent-color: #D98C2B; }
 .cam-shot { width: 74px; height: 74px; border-radius: 50%; border: 5px solid #fff; background: #D98C2B; }
+
+.btn-acc { background: var(--ink); color: #fff; border-color: var(--ink); max-width: 7em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button:disabled { cursor: wait; }
+.kv a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--skill); text-underline-offset: 3px; }
+#acMsg { margin-top: 4px; }
+@media (max-width: 420px) { .brand-sub { display: none; } }

@@ -145,7 +145,7 @@
       '<div class="cond ' + lc.cls + '"><span class="dot"></span><div>' + esc(lc.text) + (s.lightNote ? '<br><span class="muted">' + esc(s.lightNote) + '</span>' : '') + '</div></div>' +
       '<div class="btn-row">' +
         (s.guide && s.guide.length ? '<button class="btn-main" data-act="nav">导航到机位</button><button class="btn-ghost" data-act="guide">路书模式</button>' : '') +
-        '<button class="btn-ghost" data-act="copy">复刻同款</button><button class="btn-ghost" data-act="checkin">打卡</button>' +
+        '<button class="btn-ghost" data-act="copy">复刻同款</button><button class="btn-ghost" data-act="checkin">打卡</button><button class="btn-ghost" data-act="share">分享卡片</button>' +
       '</div><div id="walkBox"></div>' +
       (techRows ? '<h3>拍法</h3><div class="tech">' + techRows + '</div>' : '') +
       '<h3>时间切面 · 今天（' + md(new Date()) + ' 周' + WEEK[new Date().getDay()] + '）</h3>' +
@@ -162,6 +162,7 @@
       (s.crowd ? '<div class="kv"><span>人流</span><span>' + esc(s.crowd) + '</span></div>' : '') +
       '<h3>状态</h3><div class="kv"><span>最近确认</span><span>' + esc(s.status.date || '暂无') + (s.status.note ? ' · ' + esc(s.status.note) : '') + '</span></div>' +
       '<div class="kv"><span>打卡</span><span>' + (s.checkins || 0) + ' 次' + (s.best ? ' · ' + esc(s.best) : '') + '</span></div>' +
+      (s.author ? '<div class="kv"><span>机位作者</span><span>' + (s.author.homepage && /^https?:\/\//.test(s.author.homepage) ? '<a href="' + esc(s.author.homepage) + '" target="_blank" rel="noopener">' + esc(s.author.name) + '</a>' : esc(s.author.name)) + '</span></div>' : '') +
       '<p class="muted">来源：' + esc(s.source || '') + '</p>'
     );
     bindSheet(function (act) {
@@ -169,6 +170,7 @@
       if (act === 'guide') openGuide(s);
       if (act === 'checkin') window.JWX && window.JWX.checkin(s);
       if (act === 'copy') window.JWX && window.JWX.camera(s);
+      if (act === 'share') window.JWX && window.JWX.share(s);
     });
   }
   // 名场面信息：来源作品、场景、台词、剧中地点 vs 实际拍摄地
