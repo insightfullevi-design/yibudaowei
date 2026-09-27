@@ -102,7 +102,7 @@
       '<div id="upInfo"></div>' +
       '<div class="form">' +
       field('名称', '<input id="upName" placeholder="例如：白玉兰桥下·颠倒世界">') +
-      field('玩法', '<select id="upType"><option value="classic">名场面复刻</option><option value="skill" selected>技法出片</option><option value="wonder">专业奇观</option></select>') +
+      field('玩法', '<select id="upType"><option value="classic">拍同款</option><option value="skill" selected>拍大片</option><option value="wonder">等奇观</option></select>') +
       field('镜头朝向', '<input id="upHeading" type="range" min="0" max="359" value="0"><span id="upHeadingVal" class="muted">0°</span>') +
       field('光线条件', '<select id="upLight"><option value="any">随时都行</option><option value="day">需要白天</option><option value="golden">黄金时刻最佳</option><option value="night">夜景</option></select>') +
       field('一句话介绍', '<input id="upSummary" placeholder="这个机位妙在哪">') +

@@ -2,7 +2,7 @@
 (function () {
   var CFG = window.JW_CONFIG, DATA = window.JW_DATA, M = window.JWMap, A = window.Astro;
   var COLORS = { classic: '#c8553d', skill: '#d98c2b', wonder: '#2b3a67', route: '#2f7d6d' };
-  var TYPE_NAME = { classic: '名场面复刻', skill: '技法出片', wonder: '专业奇观', route: '路线' };
+  var TYPE_NAME = { classic: '拍同款', skill: '拍大片', wonder: '等奇观', route: '路线' };
   var $ = function (id) { return document.getElementById(id); };
   var map, markers = {}, sel = [], walkInfo = null, filter = 'all';
   var spotById = {}; DATA.spots.forEach(function (s) { spotById[s.id] = s; });
@@ -334,7 +334,7 @@
     return '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="13" fill="#2f7d6d" stroke="#fff" stroke-width="3"/><text x="15" y="20" text-anchor="middle" font-size="14" font-weight="700" fill="#fff" font-family="Arial">' + n + '</text></svg>';
   }
 
-  // ---------------- 专业奇观：环金穿月预测 ----------------
+  // ---------------- 等奇观：环金穿月预测 ----------------
   function angDiff(a, b) { return Math.abs(((a - b) % 360 + 540) % 360 - 180); }
   // 几何关系：站位到方孔的距离 d 必须让“塔尖”和“方孔”在画面里上下对齐：
   //   (方孔高 - 机位高) / d = (塔尖高 - 机位高) / (d - 两楼间距 D)  =>  d = (方孔高-机位高)·D / (方孔高-塔尖高)
@@ -376,7 +376,7 @@
     clearSel();
     var T = [w.target.lng, w.target.lat], F = [w.front.lng, w.front.lat];
     map.flyTo(w.target.lng, w.target.lat, 14);
-    openSheet('<span class="tag wonder">专业奇观</span><h2>' + esc(w.name) + '</h2><p>' + esc(w.desc) + '</p><p class="muted">正在计算未来一年的月亮位置…</p>');
+    openSheet('<span class="tag wonder">等奇观</span><h2>' + esc(w.name) + '</h2><p>' + esc(w.desc) + '</p><p class="muted">正在计算未来一年的月亮位置…</p>');
     setTimeout(function () {
       var pred = predictWonder(w, 400);
       WSTATE = { w: w, pred: pred, cam: [] };
@@ -395,7 +395,7 @@
           '<div class="muted">' + grade(c.err) + ' · 偏差 ' + c.err.toFixed(2) + '° · 月面 ' + Math.round(c.illum * 100) + '%</div></div>';
       }).join('') : '<p class="muted">未来一年内没有算到满足条件的时刻。</p>';
       openSheet(
-        '<span class="tag wonder">专业奇观</span><h2>' + esc(w.name) + '</h2><p>' + esc(w.desc) + '</p>' +
+        '<span class="tag wonder">等奇观</span><h2>' + esc(w.name) + '</h2><p>' + esc(w.desc) + '</p>' +
         '<h3>第一步：空间 · 站在哪</h3>' +
         '<div class="cond ok"><span class="dot"></span><div>蓝色虚线是“对齐线”：从' + esc(w.target.name) + '穿过' + esc(w.front.name) + '向后延长，站在线上两栋楼才会对齐。' +
         '在线上还要站到离方孔约 <b>' + (g.dist / 1000).toFixed(1) + ' 公里</b>处，塔尖才会刚好顶进方孔：这个点就是地图上的大圆点。</div></div>' +
@@ -436,7 +436,7 @@
     return arr;
   }
   var DEMOS = [
-    { no: 1, type: 'classic', title: '经典同款：环形天桥看东方明珠', run: function () {
+    { no: 1, type: 'classic', title: '拍同款：环形天桥看东方明珠', run: function () {
       var s = spotById.ring;
       runScript('经典同款', [
         { say: '人人都见过的“上海明信片”画面。点开机位：站在哪、朝哪拍、用什么镜头，一目了然。', act: function () { setFilter('all'); openSpot('ring'); } },
@@ -445,7 +445,7 @@
         { say: '一键调用百度步行路线规划，从地铁站走到机位。', act: function () { navigate(s, true); }, wait: 5000 }
       ].concat(guideDemoSteps(s)));
     } },
-    { no: 2, type: 'route', title: '机位路线：北外滩出片线', run: function () {
+    { no: 2, type: 'route', title: '路线：北外滩出片线', run: function () {
       var p;
       runScript('机位路线', [
         { say: '三个机位串成一条路线。关键不是距离最短，而是光线：桥下镜面天黑就失效。', act: function () { setFilter('route'); p = openRoute('bund-north'); }, wait: 5200 },
@@ -455,16 +455,16 @@
         { say: '这就是“时间切面”：同一个位置，不同时刻，是完全不同的画面。', act: function () { openRoute('bund-north'); } }
       ]);
     } },
-    { no: 3, type: 'skill', title: '技法出片：三件套仰拍', run: function () {
+    { no: 3, type: 'skill', title: '拍大片：三件套仰拍', run: function () {
       var s = spotById.snowking;
-      runScript('技法出片', [
+      runScript('拍大片', [
         { say: '会找不等于会拍。这个机位的关键是拍法：背对“开瓶器”，镜头朝天，开广角。', act: function () { setFilter('all'); openSpot('snowking'); }, wait: 5200 },
         { say: '拍法被拆成姿势、镜头、朝向、道具，照着做就能复刻。', wait: 4200 },
         { say: '现场最好用的线索往往不是坐标，而是“地上趴着各种姿势拍照的人”。路书把这些线索按顺序串起来。', act: function () { navigate(s, true); }, wait: 5200 }
       ].concat(guideDemoSteps(s)));
     } },
-    { no: 4, type: 'wonder', title: '专业奇观：环金穿月', run: function () {
-      runScript('专业奇观', [
+    { no: 4, type: 'wonder', title: '等奇观：环金穿月', run: function () {
+      runScript('等奇观', [
         { say: '满月穿过环球金融中心的方孔，金茂塔尖顶在月亮中间。这是一道几何题：地图最擅长解几何题。', act: function () { setFilter('wonder'); openWonder('moon-swfc'); }, wait: 5600 },
         { say: '蓝色虚线是对齐线：站在线上，两栋楼才会对齐。', wait: 4600 },
         { say: '再算未来一年月亮的方向和高度，找出月亮正好沿对齐线升起、又接近满月的时刻，得到日期和站位。', wait: 5600 },

@@ -23,35 +23,89 @@
     if (name === 'home') renderHome();
     if (name === 'profile') renderProfile();
     var v = $('v' + name[0].toUpperCase() + name.slice(1)); if (v) v.scrollTop = 0;
+    setTab(name === 'list' ? 'home' : name);
   }
+  function setTab(t) { document.querySelectorAll('#tabbar [data-tab]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === t); }); }
   function goSpot(id) { show('map'); setTimeout(function () { JW.openSpot(id); }, 60); }
   function goMap(fn) { show('map'); if (fn) setTimeout(fn, 60); }
 
-  // ---------------- 分类 ----------------
-  var CATS = [
-    { key: 'film', name: '影视名场面', desc: '剧里的那一幕，就在这个街角', color: '#C8553D', test: function (s) { return s.collection === 'film' || (s.scene && s.scene.source === '影视名场面'); } },
-    { key: 'textbook', name: '课本里的世界', desc: '举起课本，对齐封面上的远方', color: '#2B3A67', test: function (s) { return s.collection === 'textbook' || (s.scene && s.scene.source === '课本封面'); } },
-    { key: 'rmb', name: '人民币里的中国', desc: '集齐 5 张，点亮全国地图', color: '#8A6A2E', test: function (s) { return s.collection === 'rmb'; } },
-    { key: 'skill', name: '技法出片', desc: '找得到，还要会拍', color: '#D98C2B', test: function (s) { return s.type === 'skill'; } },
-    { key: 'wonder', name: '城市奇观', desc: '一年只有几次的对齐时刻', color: '#2B3A67', wonder: true },
+  // ---------------- 分类：三种玩法 + 专题 + 路线 ----------------
+  var PLAYS = [
+    { key: 'classic', name: '拍同款', en: 'SAME SHOT', desc: '站到同一个位置，复刻剧里、课本里、钞票上的那一幕', color: '#C8553D',
+      icon: '<svg viewBox="0 0 32 32"><rect x="4" y="7" width="17" height="13" rx="2"/><rect x="11" y="12" width="17" height="13" rx="2"/></svg>' },
+    { key: 'skill', name: '拍大片', en: 'MASTER SHOT', desc: '构图、焦段、姿势、后期都教你，普通地方也能出片', color: '#D98C2B',
+      icon: '<svg viewBox="0 0 32 32"><path d="M5 11h5l2-3h8l2 3h5v14H5z"/><circle cx="16" cy="17.5" r="4.5"/></svg>' },
+    { key: 'wonder', name: '等奇观', en: 'RARE MOMENT', desc: '穿月、悬日：算好哪天哪一分钟，一年只等几次', color: '#2B3A67',
+      icon: '<svg viewBox="0 0 32 32"><circle cx="21" cy="9" r="4.5"/><path d="M8 28V12h4v16M14 28V6h4v22M4 28h24"/></svg>' }
+  ];
+  var TOPICS = [
+    { key: 'film', color: '#C8553D' }, { key: 'textbook', color: '#2B3A67' }, { key: 'rmb', color: '#8A6A2E' }
+  ];
+  function topicInfo(k) { var c = window.JW_DATA.collections[k] || {}; return { name: c.name || k, desc: c.desc || '' }; }
+  var CATS = PLAYS.map(function (p) {
+    return { key: p.key, name: p.name, desc: p.desc, color: p.color, wonder: p.key === 'wonder', test: function (s) { return s.type === p.key; } };
+  }).concat(TOPICS.map(function (t) {
+    var i = topicInfo(t.key);
+    return { key: t.key, name: i.name, desc: i.desc, color: t.color, test: function (s) { return s.collection === t.key; } };
+  })).concat([
     { key: 'route', name: '机位路线', desc: '按光线和地形排好顺序', color: '#2F7D6D', route: true },
     { key: 'ugc', name: '网友上传', desc: '最新发现的好角度', color: '#6B625A', test: function (s) { return !!s.rowId; } }
-  ];
-  function catCount(c) { if (c.wonder) return window.JW_DATA.wonders.length; if (c.route) return window.JW_DATA.routes.length; return allSpots().filter(c.test).length; }
+  ]);
+  function catBy(k) { return CATS.filter(function (c) { return c.key === k; })[0]; }
+  function catCount(c) {
+    if (c.route) return window.JW_DATA.routes.length;
+    var n = allSpots().filter(c.test).length;
+    return c.wonder ? n + window.JW_DATA.wonders.length : n;
+  }
+
+  // ---------------- 此刻 · 我身边 ----------------
+  var FALLBACK = [121.5064, 31.2451], lastPos = null;
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function hm(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function dur(ms) { var m = Math.max(1, Math.round(ms / 60000)); return m < 60 ? m + ' 分钟' : Math.floor(m / 60) + ' 小时' + (m % 60 ? ' ' + (m % 60) + ' 分' : ''); }
+  // 用太阳位置说清楚“现在是什么光”
+  function nowCtx(p) {
+    var now = new Date(), A = window.Astro, t = A.dayTimes(now, p[1], p[0]);
+    var gEnd = new Date(t.sunset.getTime() + 15 * 60000);
+    if (now < t.sunrise) return { title: '天还没亮 · 日出 ' + hm(t.sunrise), sub: '再过 ' + dur(t.sunrise - now) + ' 日出；夜景机位还能再拍一会儿。' };
+    if (now < t.goldenStart) return { title: '距离日落还有 ' + dur(t.sunset - now), sub: '日落 ' + hm(t.sunset) + '，黄金时刻 ' + hm(t.goldenStart) + ' 开始。现在适合需要白天的机位。' };
+    if (now <= gEnd) return { title: '黄金时刻进行中', sub: '日落 ' + hm(t.sunset) + '，光线最柔和的时候，赶紧出发。' };
+    if (now < t.blueEnd) return { title: '蓝调时刻 · 夜景马上开拍', sub: '天在 ' + hm(t.blueEnd) + ' 左右完全黑下来，楼体灯光正亮起。' };
+    return { title: '夜景时间', sub: '城市灯光已经亮起，夜景机位正是时候。明天日出 ' + hm(A.dayTimes(new Date(now.getTime() + 86400000), p[1], p[0]).sunrise) + '。' };
+  }
+  var RANK = { ok: 0, wait: 1, bad: 2 }, BADGE = { ok: '现在正好', wait: '稍后更好', bad: '今天错过' };
+  function nearbyNow(p, n) {
+    var now = new Date();
+    return allSpots().map(function (s) { var lc = JW.lightCheck(s, now); return { s: s, d: haversine(p, [s.lng, s.lat]), cls: lc.cls || 'wait', text: lc.text }; })
+      .sort(function (a, b) { return a.d - b.d; }).slice(0, n || 30);
+  }
+  function badge(cls) { return '<span class="badge ' + cls + '">' + BADGE[cls] + '</span>'; }
+  function nowCard() {
+    var p = lastPos || FALLBACK, c = nowCtx(p);
+    var top = nearbyNow(p, 12).sort(function (a, b) { return (RANK[a.cls] - RANK[b.cls]) || (a.d - b.d); }).slice(0, 3);
+    return '<div class="now" id="nowCard"><div class="now-h"><b>此刻 · 我身边</b><span>' + (lastPos ? '按你的位置' : '以上海陆家嘴为例') + ' · ' + hm(new Date()) + '</span></div>' +
+      '<div class="now-time">' + esc(c.title) + '</div><p class="now-sub">' + esc(c.sub) + '</p>' +
+      '<div class="now-list">' + top.map(function (x) {
+        return '<button class="now-item" data-spot="' + esc(x.s.id) + '"><div class="ni-img">' + coverHtml(x.s) + '</div><div class="ni-t"><b>' + esc(x.s.name) + '</b><span>' + badge(x.cls) + esc(JW.TYPE_NAME[x.s.type] || '') + '</span></div><em>' + km(x.d) + '</em></button>';
+      }).join('') + '</div>' +
+      '<div class="btn-row"><button class="btn-main" data-go="nearby">' + (lastPos ? '看更多身边机位' : '定位，看我身边的机位') + '</button><button class="btn-ghost" data-go="map">打开地图</button></div></div>';
+  }
 
   // ---------------- 首页 ----------------
-  function heroArt() {
-    return '<svg class="hero-art" viewBox="0 0 360 260" aria-hidden="true">' +
-      '<defs><linearGradient id="hs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F3D9A8"/><stop offset="1" stop-color="#F6F1E7"/></linearGradient>' +
-      '<radialGradient id="hc" cx=".5" cy="1" r=".9"><stop offset="0" stop-color="#D98C2B" stop-opacity=".55"/><stop offset="1" stop-color="#D98C2B" stop-opacity="0"/></radialGradient></defs>' +
-      '<rect width="360" height="260" rx="22" fill="url(#hs)"/>' +
-      '<g stroke="#2A2521" stroke-opacity=".07">' + Array.apply(null, Array(9)).map(function (_, i) { return '<path d="M' + (i * 45) + ' 0V260M0 ' + (i * 32) + 'H360"/>'; }).join('') + '</g>' +
-      '<circle cx="292" cy="58" r="20" fill="#2B3A67" opacity=".9"/>' +
-      '<path d="M180 222 L96 70 A170 170 0 0 1 264 70 Z" fill="url(#hc)"/>' +
-      '<path d="M180 222 L96 70 M180 222 L264 70" stroke="#D98C2B" stroke-width="2" stroke-dasharray="4 5"/>' +
-      '<g fill="#2A2521" opacity=".18"><rect x="120" y="96" width="16" height="70"/><rect x="146" y="62" width="20" height="104"/><rect x="176" y="84" width="14" height="82"/><rect x="200" y="40" width="22" height="126"/><rect x="230" y="92" width="14" height="74"/></g>' +
-      '<circle cx="180" cy="222" r="10" fill="#2A2521"/><circle cx="180" cy="222" r="22" fill="none" stroke="#2A2521" stroke-opacity=".25"/>' +
-      '<g fill="none" stroke="#2A2521" stroke-width="4" stroke-linecap="round"><path d="M20 46V20h26M314 20h26v26M340 214v26h-26M46 240H20v-26"/></g></svg>';
+  function topicArt(k, color) {
+    var bg = '<rect width="320" height="400" fill="' + color + '"/><circle cx="260" cy="70" r="120" fill="#fff" opacity=".08"/>';
+    var fg = {
+      film: '<g fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="3"><rect x="40" y="70" width="240" height="150" rx="6"/></g><g fill="#fff" opacity=".35">' + [0,1,2,3,4,5,6,7].map(function (i) { return '<rect x="' + (50 + i * 29) + '" y="78" width="16" height="10" rx="2"/><rect x="' + (50 + i * 29) + '" y="202" width="16" height="10" rx="2"/>'; }).join('') + '</g><path d="M140 125v40l34-20z" fill="#fff" opacity=".6"/>',
+      textbook: '<g fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="3"><path d="M160 90c-30-16-70-18-110-10v140c40-8 80-6 110 10 30-16 70-18 110-10V80c-40-8-80-6-110 10zM160 90v140"/></g><path d="M70 190l30-40 22 24 18-16 20 32" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="3"/>',
+      rmb: '<g fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="3"><rect x="40" y="90" width="240" height="120" rx="8"/><circle cx="100" cy="150" r="30"/></g><path d="M160 180l26-46 22 30 16-18 24 34" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="3"/><text x="258" y="120" fill="#fff" opacity=".6" font-size="22" font-weight="700" text-anchor="end">¥</text>'
+    }[k] || '';
+    return '<svg class="t-art" viewBox="0 0 320 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + bg + fg + '</svg>';
+  }
+  function routeCard(r) {
+    var names = r.spotIds.map(function (id) { var s = JW.spotById[id]; return s ? s.name.replace(/[（(].*$/, '').slice(0, 8) : id; });
+    return '<button class="route-card" data-spot="r:' + esc(r.id) + '"><b>' + esc(r.name) + '</b><span>' + esc(r.advice || '') + '</span>' +
+      '<div class="route-dots">' + names.map(function (_, i) { return (i ? '<s></s>' : '') + '<i></i>'; }).join('') + '</div>' +
+      '<div class="route-names">' + names.map(function (n) { return '<span>' + esc(n) + '</span>'; }).join('') + '</div></button>';
   }
   function renderHome() {
     var ugc = allSpots().filter(function (s) { return s.rowId; }).slice(0, 8);
@@ -59,59 +113,62 @@
     $('vHome').innerHTML =
       '<header class="h-top"><div class="brand"><svg class="brand-mark" viewBox="0 0 160 160" width="30" height="30"><use href="#logoMark"/></svg><div class="brand-name">' + esc(window.JW_CONFIG.BRAND) + '</div></div>' +
       '<button class="btn-ghost btn-acc" data-go="account">' + (loggedIn ? esc(((Cloud.me().user_metadata || {}).nickname) || '我的') : '登录') + '</button></header>' +
-      '<section class="hero">' +
-        '<p class="eyebrow">拍照机位导航</p>' +
-        '<h1>导航到<br>最美的那个角度</h1>' +
+      // 1 首屏
+      '<section class="hero"><p class="eyebrow">拍照机位导航</p><h1>导航到<br>最美的那个角度</h1>' +
         '<p class="lead">普通导航把你送到“地点”就结束了。移步到位把你送到<b>站位</b>，告诉你<b>朝哪拍</b>、<b>几点来</b>、<b>怎么拍</b>。</p>' +
-        heroArt() +
-        '<div class="hero-cta"><button class="btn-main" data-go="nearby">看看我身边的机位</button><button class="btn-ghost" data-go="map">打开机位地图</button></div>' +
-      '</section>' +
-      '<section class="pillars">' +
-        pillar('一个点', '站位', '精确到你该站的那块地砖：路书一步一图，把你带到最后一米。', '#2A2521') +
-        pillar('一个朝向', '取景框', '地图上的扇形就是取景框在大地上的影子：朝哪拍、顺光还是逆光，出发前就知道。', '#D98C2B') +
-        pillar('一段时光', '时间切面', '日落、灯光、月亮、人流：同一个位置，不同时刻是完全不同的画面。', '#2B3A67') +
-      '</section>' +
-      '<section class="sec"><div class="sec-h"><h2>经典案例</h2><button class="link" data-go="cases">全部分类 ›</button></div>' +
-        '<div class="cat-grid">' + CATS.map(function (c) {
-          return '<button class="cat" data-cat="' + c.key + '" style="--c:' + c.color + '"><span class="cat-n">' + catCount(c) + '</span><b>' + esc(c.name) + '</b><span>' + esc(c.desc) + '</span></button>';
+        nowCard() + '</section>' +
+      // 2 三种玩法
+      '<section class="sec"><div class="sec-h"><h2>三种玩法</h2><button class="link" data-go="cases">全部分类 ›</button></div><div class="plays">' +
+        PLAYS.map(function (p) {
+          var eg = p.key === 'wonder' ? window.JW_DATA.wonders.map(function (w) { return w.name; }) : allSpots().filter(function (s) { return s.type === p.key && !s.rowId; }).slice(0, 3).map(function (s) { return s.name.replace(/[（(].*$/, ''); });
+          return '<button class="play" data-cat="' + p.key + '" style="--c:' + p.color + '"><div class="play-ic">' + p.icon + '</div><div class="play-t"><b>' + p.name + '<small>' + catCount(catBy(p.key)) + '</small></b><span>' + esc(p.desc) + '</span>' + (eg.length ? '<i>' + esc(eg.join(' · ')) + '</i>' : '') + '</div></button>';
         }).join('') + '</div></section>' +
-      (ugc.length ? '<section class="sec"><div class="sec-h"><h2>网友刚刚发现</h2><button class="link" data-cat="ugc">更多 ›</button></div><div class="strip">' +
-        ugc.map(function (s) { return '<button class="card" data-spot="' + esc(s.id) + '"><div class="card-img">' + coverHtml(s) + '</div><b>' + esc(s.name) + '</b><span>' + esc(s.author ? s.author.name : '') + '</span></button>'; }).join('') + '</div></section>' : '') +
-      '<section class="sec how"><h2>怎么用</h2><ol>' +
-        '<li><b>发现</b>在地图或分类里找到一个机位，看站位、朝向和拍法。</li>' +
-        '<li><b>看时机</b>结合日落、天气和开放时间，告诉你现在去合不合适。</li>' +
-        '<li><b>移步</b>百度地图把你带到附近，路书和指南针带你站到位。</li>' +
-        '<li><b>复刻与巡礼</b>叠加参考画面拍同款，打卡、生成分享卡片，也可以上传你的机位。</li>' +
-      '</ol></section>' +
-      '<section class="motto"><p>每一次打卡，都是对这个世界的一次巡礼。</p><p class="muted">一张美照背后，是一段旅途、一个地标、一条路线、一段时光。</p>' +
+      // 3 专题
+      '<section class="sec"><div class="sec-h"><h2>专题</h2></div><div class="topics">' +
+        TOPICS.map(function (t) { var i = topicInfo(t.key), c = catBy(t.key);
+          return '<button class="topic" data-cat="' + t.key + '" style="--c:' + t.color + '">' + topicArt(t.key, t.color) + '<div class="t-txt"><div class="t-n">' + catCount(c) + ' 个机位</div><b>' + esc(i.name) + '</b><span>' + esc(i.desc) + '</span></div></button>';
+        }).join('') + '</div></section>' +
+      // 4 路线
+      '<section class="sec"><div class="sec-h"><h2>路线</h2><button class="link" data-cat="route">全部 ›</button></div>' + window.JW_DATA.routes.slice(0, 3).map(routeCard).join('') + '</section>' +
+      // 5 网友刚刚发现
+      '<section class="sec"><div class="sec-h"><h2>网友刚刚发现</h2>' + (ugc.length ? '<button class="link" data-cat="ugc">更多 ›</button>' : '') + '</div>' +
+        (ugc.length ? '<div class="strip">' + ugc.map(function (s) { return '<button class="card" data-spot="' + esc(s.id) + '"><div class="card-img">' + coverHtml(s) + '</div><b>' + esc(s.name) + '</b><span>' + esc(s.author ? s.author.name : '') + '</span></button>'; }).join('') + '</div>'
+          : '<p class="muted">还没有人上传。<button class="link" data-go="upload">成为第一个</button></p>') + '</section>' +
+      // 6 理念
+      '<section class="idea"><p class="eyebrow">我们相信</p><h2>每一次打卡，都是对这个世界的一次巡礼。</h2><p>一张美照背后，是一段旅途、一个地标、一条路线、一段时光。移步到位把导航的终点，从“地点”改成“视角”。</p>' +
+        '<div class="idea-3"><div><em>一个点</em><b>站位</b><span>精确到该站的那块地砖</span></div><div><em>一个朝向</em><b>取景框</b><span>地图上的扇形就是视野</span></div><div><em>一段时光</em><b>时间切面</b><span>日落、灯光、月亮、人流</span></div></div>' +
         '<div class="btn-row"><button class="btn-main" data-go="upload">＋ 上传我的机位</button><button class="btn-ghost" data-go="shareapp">分享移步到位</button><button class="btn-ghost" data-go="demo">▶ 看演示</button></div></section>' +
       '<footer class="h-foot">百度地图开发者创作大赛参赛作品 · 地图与路线能力由百度地图提供</footer>';
     bind($('vHome'));
   }
-  function pillar(k, t, d, c) { return '<div class="pillar" style="--c:' + c + '"><span class="pk">' + k + '</span><b>' + t + '</b><p>' + d + '</p></div>'; }
 
   // ---------------- 列表页：分类 / 身边 ----------------
   function openList(mode, catKey) {
     listMode = mode; show('list');
     var v = $('vList');
     if (mode === 'cases') {
-      v.innerHTML = listHead('经典案例', '按类别浏览') + '<div class="cat-grid wide">' + CATS.map(function (c) {
+      v.innerHTML = listHead('全部分类', '三种玩法 · 专题 · 路线') + '<div class="cat-grid wide">' + CATS.map(function (c) {
         return '<button class="cat" data-cat="' + c.key + '" style="--c:' + c.color + '"><span class="cat-n">' + catCount(c) + '</span><b>' + esc(c.name) + '</b><span>' + esc(c.desc) + '</span></button>';
       }).join('') + '</div>';
     } else if (mode === 'cat') {
-      var c = CATS.filter(function (x) { return x.key === catKey; })[0];
+      var c = catBy(catKey) || CATS[0];
       var tabs = '<nav class="tabs">' + CATS.map(function (x) { return '<button data-cat="' + x.key + '" class="' + (x.key === catKey ? 'on' : '') + '">' + esc(x.name) + '</button>'; }).join('') + '</nav>';
       var items;
       if (c.route) items = window.JW_DATA.routes.map(function (r) { return row({ id: 'r:' + r.id, name: r.name, sub: r.spotIds.length + ' 个机位 · ' + r.advice, color: c.color, art: JW.placeholder(r.spotIds.length + ' 个机位', 'route', false) }); });
-      else if (c.wonder) items = window.JW_DATA.wonders.map(function (w) { return row({ id: 'w:' + w.id, name: w.name, sub: w.desc, color: c.color, art: JW.placeholder(w.name, 'wonder', true) }); });
-      else items = allSpots().filter(c.test).map(function (s) { return spotRow(s); });
+      else items = (c.wonder ? window.JW_DATA.wonders.map(function (w) { return row({ id: 'w:' + w.id, name: w.name, sub: w.desc, color: c.color, art: JW.placeholder(w.name, 'wonder', true) }); }) : []).concat(allSpots().filter(c.test).map(function (s) { return spotRow(s); }));
       v.innerHTML = listHead(c.name, c.desc) + tabs + '<div class="rows">' + (items.join('') || '<p class="muted pad">这一类还没有机位，<button class="link" data-go="upload">上传第一个</button></p>') + '</div>';
     } else if (mode === 'nearby') {
-      v.innerHTML = listHead('我身边的机位', '正在获取你的位置…') + '<div class="rows" id="nearRows"><p class="muted pad">第一次使用时，浏览器会询问是否允许获取位置，请点“允许”。</p></div>';
+      v.innerHTML = listHead('此刻 · 我身边', '正在获取你的位置…') + '<div id="nearBody"><p class="muted pad">第一次使用时，浏览器会询问是否允许获取位置，请点“允许”。</p></div>';
       locate(function (p, fallback) {
-        var list = allSpots().map(function (s) { return { s: s, d: haversine(p, [s.lng, s.lat]) }; }).sort(function (a, b) { return a.d - b.d; }).slice(0, 30);
-        v.querySelector('.l-sub').textContent = fallback ? '没拿到定位，先以上海陆家嘴为例' : '按离你的距离排序';
-        $('nearRows').innerHTML = list.map(function (x) { return spotRow(x.s, km(x.d)); }).join('');
+        if (!fallback) lastPos = p;
+        var c = nowCtx(p), list = nearbyNow(p, 30);
+        var good = list.filter(function (x) { return x.cls === 'ok'; }), later = list.filter(function (x) { return x.cls !== 'ok'; });
+        v.querySelector('.l-sub').textContent = fallback ? '没拿到定位，先以上海陆家嘴为例' : '时间 + 地点：现在能拍的排在前面';
+        var nr = function (x) { return row({ id: x.s.id, name: x.s.name, sub: BADGE[x.cls] + ' · ' + (x.s.area || '') + ' · ' + (JW.TYPE_NAME[x.s.type] || ''), dist: km(x.d), art: coverHtml(x.s) }); };
+        $('nearBody').innerHTML = '<div class="now-bar"><b>' + esc(c.title) + '</b><span>' + esc(c.sub) + '</span></div>' +
+          '<h3 class="grp">现在就能拍<small>' + good.length + ' 个</small></h3><div class="rows">' + (good.map(nr).join('') || '<p class="muted">附近暂时没有此刻合适的机位，看看下面稍后更好的。</p>') + '</div>' +
+          '<h3 class="grp">晚点再来<small>' + later.length + ' 个</small></h3><div class="rows">' + later.map(nr).join('') + '</div>';
+        bind($('nearBody'));
       });
     }
     bind(v);
@@ -234,6 +291,7 @@
     if (what === 'login') return X.account('login');
     if (what === 'signup') return X.account('signup');
     if (what === 'upload') { if (Cloud && Cloud.enabled() && !Cloud.me()) return X.account('login', '登录后上传的机位所有人都能看到，并署上你的名字'); return goMap(X.openUpload); }
+    if (what === 'profile') return show('profile');
     if (what === 'minemap') return goMap(X.openMine);
     if (what === 'shareapp') return shareApp();
     if (what === 'demo') { show('map'); return setTimeout(function () { $('btnDemo').click(); }, 60); }
@@ -245,6 +303,18 @@
     JW = window.JW; X = window.JWX;
     $('btnHome').addEventListener('click', function () { show('home'); });
     $('btnAccount').onclick = function () { go('account'); };
+    document.querySelectorAll('#tabbar [data-tab]').forEach(function (b) { b.onclick = function () {
+      var t = b.getAttribute('data-tab');
+      if (t === 'upload') return go('upload');
+      if (t === 'profile') return show('profile');
+      show(t);
+    }; });
+    // 如果之前已经允许过定位，悄悄拿一次位置，首页“此刻 · 我身边”就按真实位置显示
+    try { navigator.permissions && navigator.permissions.query({ name: 'geolocation' }).then(function (r) {
+      if (r.state === 'granted') locate(function (p, fb) { if (!fb) { lastPos = p; if (current === 'home') renderHome(); } });
+    }).catch(function () {}); } catch (e) {}
+    // 每分钟刷新一次首页的时间
+    setInterval(function () { if (current === 'home' && !document.hidden) { var y = $('vHome').scrollTop; renderHome(); $('vHome').scrollTop = y; } }, 60000);
     window.addEventListener('jw-data', function () { if (current === 'home') renderHome(); if (current === 'profile') renderProfile(); });
     if (Cloud && Cloud.onChange) Cloud.onChange(function () { if (current === 'home') renderHome(); });
     // 从分享二维码、邮件链接进来时直接进地图或个人页，其余情况先看首页

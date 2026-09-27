@@ -41,7 +41,7 @@
 
   // 底部卡片/右侧面板会挡住地图，定位和缩放时把目标放到可见区域中间
   function mobile() { return window.innerWidth < 900; }
-  M.margins = function () { return mobile() ? [120, 30, Math.round(window.innerHeight * 0.62), 30] : [120, 440, 40, 40]; };
+  M.margins = function () { return mobile() ? [120, 30, Math.round(window.innerHeight * 0.64), 30] : [120, 440, 40, 40]; };
   M.lift = function () { var m = M.margins(); return [(m[3] - m[1]) / 2, (m[2] - m[0]) / 2]; }; // 目标需要相对屏幕中心偏移的像素
 
   // ---------- 载入百度地图 ----------

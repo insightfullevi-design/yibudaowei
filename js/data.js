@@ -3,7 +3,7 @@
 // 坐标用百度坐标（BD09）。校准方法：打开百度“坐标拾取器”，点到站位处，复制经纬度填进来。
 //
 // 字段说明：
-//   type      机位玩法：classic 同款复刻 / skill 技法出片 / wonder 专业奇观
+//   type      机位玩法：classic 拍同款 / skill 拍大片 / wonder 等奇观
 //   heading   镜头朝向，正北 0°、正东 90°、正南 180°、正西 270°；朝天拍填 null
 //   fov       画面左右能装下的角度：广角约 100，主摄约 70，长焦约 30
 //   light     光线条件：day 需要白天 / golden 傍晚黄金时刻最佳 / night 夜景 / any 都行
@@ -112,7 +112,7 @@ window.JW_DATA = {
       source: '小红书网友笔记整理，待实拍核实'
     },
 
-    // ---- 名场面复刻：上海影视取景地 ----
+    // ---- 拍同款：上海影视取景地 ----
     {
       id: 'tinytimes', type: 'classic', area: '静安', collection: 'film',
       name: '上海展览中心·弧形大楼梯',
@@ -245,7 +245,7 @@ window.JW_DATA = {
       crowd: '观景平台人多', status: { ok: true, date: '', note: '点赞 1344、收藏 1548' }, source: '小红书网友笔记整理，待核实'
     },
 
-    // ---- 名场面复刻：人民币里的中国（没有照片时显示“等你来复刻第一张”） ----
+    // ---- 拍同款：人民币里的中国（没有照片时显示“等你来复刻第一张”） ----
     { id: 'rmb20', type: 'classic', area: '桂林', collection: 'rmb', scene: { source: '人民币图案', work: '第五套人民币', moment: '20 元背面图案', storyPlace: '', realPlace: '漓江' }, name: '20 元背面·漓江', lng: 110.5270, lat: 24.9260, heading: null, fov: 70, cover: null, coverHint: '等你来复刻第一张', summary: '对应第五套人民币 20 元背面图案的实景。', technique: {}, light: 'day', lightNote: '', access: { fee: '', booking: '', hours: '' }, guide: [], status: { ok: null, date: '', note: '待认领' }, source: '坐标为估算，待核实' },
     { id: 'rmb1', type: 'classic', area: '杭州', collection: 'rmb', scene: { source: '人民币图案', work: '第五套人民币', moment: '1 元背面图案', storyPlace: '', realPlace: '三潭印月' }, name: '1 元背面·三潭印月', lng: 120.1520, lat: 30.2440, heading: null, fov: 70, cover: null, coverHint: '等你来复刻第一张', summary: '对应第五套人民币 1 元背面图案的实景。', technique: {}, light: 'day', lightNote: '', access: { fee: '', booking: '', hours: '' }, guide: [], status: { ok: null, date: '', note: '待认领' }, source: '坐标为估算，待核实' },
     { id: 'rmb5', type: 'classic', area: '泰安', collection: 'rmb', scene: { source: '人民币图案', work: '第五套人民币', moment: '5 元背面图案', storyPlace: '', realPlace: '泰山' }, name: '5 元背面·泰山', lng: 117.1100, lat: 36.2600, heading: null, fov: 70, cover: null, coverHint: '等你来复刻第一张', summary: '对应第五套人民币 5 元背面图案的实景。', technique: {}, light: 'day', lightNote: '', access: { fee: '', booking: '', hours: '' }, guide: [], status: { ok: null, date: '', note: '待认领' }, source: '坐标为估算，待核实' },
@@ -283,7 +283,7 @@ window.JW_DATA = {
     }
   ],
 
-  // 专业奇观：环金穿月（月亮穿过环球金融中心顶部方孔，金茂塔尖顶在月亮中间）
+  // 等奇观：环金穿月（月亮穿过环球金融中心顶部方孔，金茂塔尖顶在月亮中间）
   // 楼的坐标和高度是近似值，结果只作“候选日期和候选区域”
   wonders: [
     {
