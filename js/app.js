@@ -1,0 +1,535 @@
+// 机位地图 · 主程序
+(function () {
+  var CFG = window.JW_CONFIG, DATA = window.JW_DATA, M = window.JWMap, A = window.Astro;
+  var COLORS = { classic: '#c8553d', skill: '#d98c2b', wonder: '#2b3a67', route: '#2f7d6d' };
+  var TYPE_NAME = { classic: '名场面复刻', skill: '技法出片', wonder: '专业奇观', route: '路线' };
+  var $ = function (id) { return document.getElementById(id); };
+  var map, markers = {}, sel = [], walkInfo = null, filter = 'all';
+  var spotById = {}; DATA.spots.forEach(function (s) { spotById[s.id] = s; });
+
+  // 演示用起点（示例坐标，真实使用时取手机定位）
+  var DEMO_START = {
+    '北外滩': { name: '国际客运中心站附近（示例起点）', p: [121.5000, 31.2590] },
+    '陆家嘴': { name: '陆家嘴站附近（示例起点）', p: [121.5065, 31.2412] }
+  };
+
+  // ---------------- 小工具 ----------------
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function hm(d) { return d ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : '--:--'; }
+  function md(d) { return (d.getMonth() + 1) + '月' + d.getDate() + '日'; }
+  function dur(ms) {
+    var m = Math.round(Math.abs(ms) / 60000);
+    return m >= 60 ? Math.floor(m / 60) + '小时' + (m % 60 ? (m % 60) + '分钟' : '') : m + '分钟';
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function toast(msg, ms) {
+    var t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove('show'); }, ms || 2600);
+  }
+  var WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+
+  // 占位图：没有实拍照片时显示，颜色随机位类型变化
+  function placeholder(hint, type, dark) {
+    var c = COLORS[type] || '#888';
+    return '<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">' +
+      '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + (dark ? '#3a342e' : '#f3e6cf') + '"/><stop offset="1" stop-color="' + c + '" stop-opacity=".55"/></linearGradient></defs>' +
+      '<rect width="400" height="300" fill="url(#g)"/>' +
+      '<g fill="' + (dark ? '#ffffff' : '#2a2521') + '" fill-opacity=".18"><rect x="60" y="120" width="26" height="180"/><rect x="100" y="70" width="34" height="230"/><rect x="150" y="150" width="30" height="150"/><rect x="250" y="40" width="40" height="260"/><rect x="300" y="110" width="30" height="190"/></g>' +
+      '<rect x="18" y="18" width="364" height="264" rx="10" fill="none" stroke="' + (dark ? '#fff' : '#2a2521') + '" stroke-opacity=".35" stroke-dasharray="6 6"/>' +
+      '<text x="200" y="150" text-anchor="middle" font-size="20" font-family="PingFang SC,Microsoft YaHei,sans-serif" fill="' + (dark ? '#fff' : '#2a2521') + '">' + esc(hint || '待上传实拍照片') + '</text>' +
+      '<text x="200" y="178" text-anchor="middle" font-size="12" font-family="PingFang SC,Microsoft YaHei,sans-serif" fill="' + (dark ? '#fff' : '#2a2521') + '" fill-opacity=".6">示意图 · 实拍后替换</text></svg>';
+  }
+  function coverHtml(s, dark) {
+    return s.cover ? '<img src="' + esc(s.cover) + '" alt="' + esc(s.name) + '">' : placeholder(s.coverHint, s.type, dark);
+  }
+
+  function markerSvg(type, on) {
+    var c = COLORS[type], r = on ? 15 : 11;
+    var inner = type === 'wonder' ? '<circle cx="20" cy="20" r="4" fill="#fff"/><circle cx="20" cy="20" r="8" fill="none" stroke="#fff" stroke-width="1.5"/>'
+      : type === 'classic' ? '<rect x="15" y="15" width="10" height="10" rx="2" fill="#fff"/>'
+      : '<circle cx="20" cy="20" r="4.5" fill="#fff"/>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">' +
+      (on ? '<circle cx="20" cy="20" r="19" fill="' + c + '" fill-opacity=".22"/>' : '') +
+      '<circle cx="20" cy="20" r="' + r + '" fill="' + c + '" stroke="#fff" stroke-width="3"/>' + inner + '</svg>';
+  }
+
+  // ---------------- 光线条件判断（时间切面） ----------------
+  function lightCheck(s, now) {
+    now = now || new Date();
+    var t = A.dayTimes(now, s.lat, s.lng), alt = A.sun(now, s.lat, s.lng).alt;
+    var tm = new Date(now.getTime() + 86400000), t2 = A.dayTimes(tm, s.lat, s.lng);
+    var res = { times: t };
+    if (s.light === 'day') {
+      if (alt > 3) { res.cls = 'ok'; res.text = '现在是白天，可以拍。距离日落（' + hm(t.sunset) + '）还有 ' + dur(t.sunset - now) + '。'; }
+      else if (now < t.sunrise) { res.cls = 'wait'; res.text = '天还没亮，这个机位需要白天。日出 ' + hm(t.sunrise) + ' 后再拍。'; }
+      else { res.cls = 'bad'; res.text = '天已经暗了，现在去拍不出来。建议明天 ' + hm(t2.sunrise) + ' 以后、' + hm(t2.goldenStart) + ' 以前来。'; }
+    } else if (s.light === 'golden') {
+      var gs = t.goldenStart, ge = new Date(t.sunset.getTime() + 15 * 60000);
+      if (now < new Date(gs.getTime() - 20 * 60000)) { res.cls = 'wait'; res.text = '最佳时间是今天 ' + hm(gs) + '–' + hm(ge) + '（黄金时刻），还有 ' + dur(gs - now) + '，建议提前到。'; }
+      else if (now <= ge) { res.cls = 'ok'; res.text = '正是黄金时刻，光线最柔和，日落 ' + hm(t.sunset) + '。'; }
+      else { res.cls = 'bad'; res.text = '今天的黄金时刻已过。明天最佳 ' + hm(t2.goldenStart) + '–' + hm(new Date(t2.sunset.getTime() + 15 * 60000)) + '，或者现在改拍夜景机位。'; }
+    } else if (s.light === 'night') {
+      if (alt < -4) { res.cls = 'ok'; res.text = '天已经黑了，正是夜景时间。'; }
+      else { res.cls = 'wait'; res.text = '天黑后效果更好：今天 ' + hm(t.blueEnd) + ' 左右天完全黑，还有 ' + dur(t.blueEnd - now) + '。'; }
+    } else if (s.light === 'any') { res.cls = 'ok'; res.text = '白天夜晚都能拍。'; }
+    else { res.cls = 'wait'; res.text = '光线条件待补充。'; }
+    return res;
+  }
+
+  // ---------------- 地图与点 ----------------
+  function clearSel() { sel.forEach(function (h) { map.remove(h); }); sel = []; map.clearWalk(); walkInfo = null; }
+  function drawMarkers() {
+    Object.keys(markers).forEach(function (id) { map.remove(markers[id]); });
+    markers = {};
+    DATA.spots.forEach(function (s) {
+      if (!visible(s)) return;
+      markers[s.id] = map.addMarker(s.lng, s.lat, markerSvg(s.type), 34, function () { openSpot(s.id); });
+    });
+    DATA.wonders.forEach(function (w) {
+      if (filter !== 'all' && filter !== 'wonder') return;
+      markers[w.id] = map.addMarker(w.target.lng, w.target.lat, markerSvg('wonder'), 34, function () { openWonder(w.id); });
+    });
+  }
+  function visible(s) {
+    if (filter === 'all') return true;
+    if (filter.indexOf('c:') === 0) return s.collection === filter.slice(2);
+    if (filter === 'mine') return !!s.mine;
+    if (filter === 'route') return DATA.routes.some(function (r) { return r.spotIds.indexOf(s.id) >= 0; });
+    return s.type === filter;
+  }
+  function highlight(id, type, lng, lat) {
+    sel.push(map.addMarker(lng, lat, markerSvg(type, true), 46, null));
+  }
+  // 取景框在大地上的投影：从站位出发、沿朝向张开的扇形
+  function drawView(s, radius) {
+    if (s.heading == null) {
+      var ring = []; for (var i = 0; i <= 36; i++) ring.push(M.offset(s.lng, s.lat, i * 10, 40));
+      sel.push(map.line(ring, COLORS[s.type], 2, true)); // 朝天拍：画一个小圈
+      return;
+    }
+    sel.push(map.polygon(M.sectorPoints(s.lng, s.lat, s.heading, s.fov || 70, radius || 900), COLORS[s.type], 0.18));
+  }
+  // 太阳方向线：白天画当前太阳方向，晚上画今天日落方向
+  function drawSun(s) {
+    var now = new Date(), sp = A.sun(now, s.lat, s.lng), t = A.dayTimes(now, s.lat, s.lng);
+    var az = sp.alt > 0 ? sp.az : A.sun(t.sunset || now, s.lat, s.lng).az;
+    sel.push(map.line([[s.lng, s.lat], M.offset(s.lng, s.lat, az, 700)], '#f0a431', 3, true));
+    return { az: az, now: sp.alt > 0 };
+  }
+
+  // ---------------- 底部卡片 ----------------
+  function openSheet(html) { $('sheetBody').innerHTML = html; $('sheet').classList.add('open'); $('sheet').setAttribute('aria-hidden', 'false'); $('sheetBody').scrollTop = 0; }
+  function closeSheet() { $('sheet').classList.remove('open'); $('sheet').setAttribute('aria-hidden', 'true'); clearSel(); }
+
+  function relation(heading, sunAz) {
+    if (heading == null) return '';
+    var d = Math.abs(((heading - sunAz) % 360 + 540) % 360 - 180);
+    return d < 45 ? '逆光（太阳在画面方向）' : d > 135 ? '顺光（太阳在身后）' : '侧光';
+  }
+
+  function openSpot(id) {
+    var s = spotById[id]; if (!s) return;
+    clearSel(); highlight(s.id, s.type, s.lng, s.lat); drawView(s);
+    var sun = drawSun(s), lc = lightCheck(s), t = lc.times, tech = s.technique || {};
+    map.flyTo(s.lng, s.lat, s.collection ? 12 : 17);
+    var techRows = [['手机姿势', tech.pose], ['镜头', tech.lens], ['朝向', tech.facing], ['后期', tech.post], ['道具', tech.prop]]
+      .filter(function (r) { return r[1]; }).map(function (r) { return '<div><b>' + r[0] + '</b>' + esc(r[1]) + '</div>'; }).join('');
+    var guide = (s.guide || []).map(function (g) { return '<li>' + esc(g.text) + '</li>'; }).join('');
+    var rel = relation(s.heading, sun.az);
+    openSheet(
+      '<span class="tag ' + s.type + '">' + TYPE_NAME[s.type] + '</span>' + (s.marker ? '<span class="tag soft">' + esc(s.marker) + '</span>' : '') +
+      (s.collection ? '<span class="tag soft">' + esc(DATA.collections[s.collection].name) + '</span>' : '') +
+      '<h2>' + esc(s.name) + '</h2><div class="muted">' + esc(s.area) + (s.heading != null ? ' · 镜头朝向 ' + Math.round(s.heading) + '°' : ' · 镜头朝天') + '</div>' +
+      '<div class="cover">' + coverHtml(s) + '</div>' +
+      '<p>' + esc(s.summary) + '</p>' + sceneHtml(s) +
+      '<div class="cond ' + lc.cls + '"><span class="dot"></span><div>' + esc(lc.text) + (s.lightNote ? '<br><span class="muted">' + esc(s.lightNote) + '</span>' : '') + '</div></div>' +
+      '<div class="btn-row">' +
+        (s.guide && s.guide.length ? '<button class="btn-main" data-act="nav">导航到机位</button><button class="btn-ghost" data-act="guide">路书模式</button>' : '') +
+        '<button class="btn-ghost" data-act="copy">复刻同款</button><button class="btn-ghost" data-act="checkin">打卡</button>' +
+      '</div><div id="walkBox"></div>' +
+      (techRows ? '<h3>拍法</h3><div class="tech">' + techRows + '</div>' : '') +
+      '<h3>时间切面 · 今天（' + md(new Date()) + ' 周' + WEEK[new Date().getDay()] + '）</h3>' +
+      '<div class="kv"><span>日出 / 日落</span><span>' + hm(t.sunrise) + ' / ' + hm(t.sunset) + '</span></div>' +
+      '<div class="kv"><span>黄金时刻</span><span>' + hm(t.goldenStart) + ' – ' + hm(t.sunset) + '</span></div>' +
+      '<div class="kv"><span>天完全黑</span><span>' + hm(t.blueEnd) + '</span></div>' +
+      (rel ? '<div class="kv"><span>' + (sun.now ? '此刻光线' : '日落时光线') + '</span><span>' + rel + '</span></div>' : '') +
+      '<p class="muted">地图上的橙色虚线是' + (sun.now ? '此刻太阳' : '今天日落') + '的方向，扇形是取景框投影到地面上的范围。</p>' +
+      (guide ? '<h3>最后一段路书</h3><ol class="steps">' + guide + '</ol>' : '') +
+      '<h3>进入与规则</h3>' +
+      '<div class="kv"><span>费用</span><span>' + esc(s.access.fee || '待补充') + '</span></div>' +
+      '<div class="kv"><span>开放时间</span><span>' + esc(s.access.hours || '待补充') + '</span></div>' +
+      (s.access.booking ? '<div class="kv"><span>预约</span><span>' + esc(s.access.booking) + '</span></div>' : '') +
+      (s.crowd ? '<div class="kv"><span>人流</span><span>' + esc(s.crowd) + '</span></div>' : '') +
+      '<h3>状态</h3><div class="kv"><span>最近确认</span><span>' + esc(s.status.date || '暂无') + (s.status.note ? ' · ' + esc(s.status.note) : '') + '</span></div>' +
+      '<div class="kv"><span>打卡</span><span>' + (s.checkins || 0) + ' 次' + (s.best ? ' · ' + esc(s.best) : '') + '</span></div>' +
+      '<p class="muted">来源：' + esc(s.source || '') + '</p>'
+    );
+    bindSheet(function (act) {
+      if (act === 'nav') navigate(s);
+      if (act === 'guide') openGuide(s);
+      if (act === 'checkin') window.JWX && window.JWX.checkin(s);
+      if (act === 'copy') window.JWX && window.JWX.camera(s);
+    });
+  }
+  // 名场面信息：来源作品、场景、台词、剧中地点 vs 实际拍摄地
+  function sceneHtml(s) {
+    var r = s.scene; if (!r) return '';
+    return '<div class="scene"><div class="scene-src">' + esc(r.source || '') + (r.work ? ' ·《' + esc(r.work) + '》' : '') + '</div>' +
+      (r.moment ? '<div class="scene-moment">' + esc(r.moment) + '</div>' : '') +
+      (r.line ? '<div class="scene-line">“' + esc(r.line) + '”</div>' : '') +
+      (r.storyPlace || r.realPlace ? '<div class="scene-place"><span>剧中</span>' + esc(r.storyPlace || '—') + '<span>实际</span>' + esc(r.realPlace || '—') + '</div>' : '') + '</div>';
+  }
+  function bindSheet(fn) {
+    $('sheetBody').querySelectorAll('[data-act]').forEach(function (b) {
+      b.addEventListener('click', function () { fn(b.getAttribute('data-act'), b); });
+    });
+  }
+
+  // 导航：先取手机定位，失败就用示例起点
+  function navigate(s, forceDemo, cb) {
+    var box = $('walkBox');
+    function go(from, label) {
+      map.walk(from, [s.lng, s.lat], function (r) {
+        if (box) box.innerHTML = r
+          ? '<div class="cond ok"><span class="dot"></span><div>从' + esc(label) + '步行 ' + esc(r.distance) + '，约 ' + esc(r.duration) + '。到了附近切换“路书模式”，按照片一步步找到站位。</div></div>'
+          : '<div class="cond bad"><span class="dot"></span><div>路线规划失败，可以直接用路书模式。</div></div>';
+        if (cb) cb(r);
+      });
+    }
+    var demo = DEMO_START[s.area] || { name: '示例起点', p: M.offset(s.lng, s.lat, 200, 600) };
+    if (forceDemo) return go(demo.p, demo.name);
+    if (box) box.innerHTML = '<p class="muted">正在获取你的位置…</p>';
+    map.locate(function (p) {
+      if (p && M.distance(p, [s.lng, s.lat]) < 30000) go(p, '你的位置');
+      else { toast('没拿到附近的定位，用示例起点演示'); go(demo.p, demo.name); }
+    });
+  }
+
+  // ---------------- 路书模式（全屏） ----------------
+  var G = { steps: [], i: 0, spot: null, onDone: null };
+  function openGuide(s, onDone) {
+    var steps = (s.guide || []).map(function (g) { return { kind: 'walk', text: g.text, photo: g.photo }; });
+    steps.push({ kind: 'frame' });
+    G = { steps: steps, i: 0, spot: s, onDone: onDone || null };
+    $('guide').classList.add('open'); $('guide').setAttribute('aria-hidden', 'false'); document.body.classList.add('guiding');
+    renderGuide();
+  }
+  function closeGuide() {
+    $('guide').classList.remove('open'); $('guide').setAttribute('aria-hidden', 'true'); document.body.classList.remove('guiding'); stopCompass();
+    var cb = G.onDone; G.onDone = null; if (cb) cb();
+  }
+  function renderGuide() {
+    var st = G.steps[G.i], s = G.spot;
+    $('guideProgress').innerHTML = G.steps.map(function (_, k) { return '<i class="' + (k <= G.i ? 'on' : '') + '"></i>'; }).join('');
+    $('guidePrev').style.visibility = G.i ? 'visible' : 'hidden';
+    if (st.kind === 'walk') {
+      stopCompass();
+      $('guideStage').innerHTML = '<div class="guide-photo">' + (st.photo ? '<img src="' + esc(st.photo) + '">' : placeholder('第 ' + (G.i + 1) + ' 步 · 指路照片', s.type, true)) + '</div>' +
+        '<div class="guide-text">' + (G.i + 1) + '. ' + esc(st.text) + '</div>' +
+        '<div class="guide-sub">照片里的箭头就是要走的方向。现场定位误差较大，走到照片里的位置后，点“我到了”。</div>';
+      $('guideNext').textContent = G.i === G.steps.length - 2 ? '到站位了，开始构图' : '我到了，下一步';
+    } else {
+      var t = s.technique || {};
+      $('guideStage').innerHTML =
+        '<div class="compass" id="compass"><div class="ring"></div><div class="target" id="cTarget"></div><div class="me"></div><div class="deg" id="cDeg">' + (s.heading == null ? '朝天' : Math.round(s.heading) + '°') + '</div></div>' +
+        '<div class="guide-text" id="cTip">' + (s.heading == null ? '镜头朝天，' + esc(t.facing || '') : '把手机转向 ' + Math.round(s.heading) + '°（' + dirName(s.heading) + '）') + '</div>' +
+        '<div class="guide-sub">' + [t.pose, t.lens, t.post ? '后期：' + t.post : '', t.prop ? '道具：' + t.prop : ''].filter(Boolean).map(esc).join(' · ') +
+        '<br><br><button class="btn-ghost dark" id="guideCam" style="margin-top:12px">打开相机，叠加参考画面对齐</button></div>';
+      $('guideNext').textContent = '完成，去打卡';
+      startCompass(s.heading);
+      var gc = $('guideCam'); if (gc) gc.addEventListener('click', function () { if (window.JWX) window.JWX.camera(s); });
+    }
+  }
+  function dirName(h) { return ['北', '东北', '东', '东南', '南', '西南', '西', '西北'][Math.round(h / 45) % 8]; }
+  function guideNext() {
+    if (G.i < G.steps.length - 1) { G.i++; renderGuide(); } else { var sp = G.spot; closeGuide(); if (!DEMO.on && window.JWX) window.JWX.checkin(sp); }
+  }
+
+  // 指南针：手机上读取朝向，提示还要转多少度
+  var compassOn = false;
+  function onOrient(e) {
+    var h = e.webkitCompassHeading != null ? e.webkitCompassHeading : (e.absolute && e.alpha != null ? 360 - e.alpha : null);
+    if (h == null || G.spot == null || G.spot.heading == null) return;
+    var diff = ((G.spot.heading - h) % 360 + 540) % 360 - 180;
+    var tg = $('cTarget'); if (tg) tg.style.transform = 'rotate(' + diff + 'deg)';
+    var tip = $('cTip'); if (tip) tip.textContent = Math.abs(diff) < 5 ? '方向对了！' : '再往' + (diff > 0 ? '右' : '左') + '转 ' + Math.round(Math.abs(diff)) + '°';
+  }
+  function startCompass(target) {
+    if (target == null) return;
+    var tg = $('cTarget'); if (tg) tg.style.transform = 'rotate(0deg)';
+    function listen() { compassOn = true; window.addEventListener('deviceorientationabsolute', onOrient); window.addEventListener('deviceorientation', onOrient); }
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission().then(function (r) { if (r === 'granted') listen(); }).catch(function () {});
+    } else listen();
+  }
+  function stopCompass() {
+    if (!compassOn) return; compassOn = false;
+    window.removeEventListener('deviceorientationabsolute', onOrient); window.removeEventListener('deviceorientation', onOrient);
+  }
+
+  // ---------------- 路线：按光线条件自动排顺序 ----------------
+  var RANK = { day: 0, any: 1, golden: 2, night: 3 };
+  function planRoute(r, now) {
+    now = now || new Date();
+    var spots = r.spotIds.map(function (id) { return spotById[id]; });
+    // 排序：需要白天的最先，其次随时可拍，再是黄金时刻，最后夜景；同类保持作者给的顺序
+    // 在“光线先后”约束下（白天 → 随时 → 黄金时刻 → 夜景）枚举所有顺序，选步行总距离最短的
+    var best = null;
+    (function perm(arr, rest) {
+      if (!rest.length) {
+        for (var k = 1; k < arr.length; k++) if (RANK[arr[k].light] < RANK[arr[k - 1].light]) return;
+        var tot = 0; for (k = 1; k < arr.length; k++) tot += M.distance([arr[k - 1].lng, arr[k - 1].lat], [arr[k].lng, arr[k].lat]);
+        if (!best || tot < best.tot) best = { tot: tot, arr: arr };
+        return;
+      }
+      rest.forEach(function (x, i) { perm(arr.concat([x]), rest.slice(0, i).concat(rest.slice(i + 1))); });
+    })([], spots);
+    var order = best ? best.arr : spots;
+    var t = A.dayTimes(now, order[0].lat, order[0].lng);
+    var stay = 25 * 60000, plan = [], cursor;
+    var lastIdx = order.length - 1;
+    // 以最后一个点的理想时间倒推出发时间
+    var anchor = order[lastIdx].light === 'night' ? t.blueEnd : order[lastIdx].light === 'golden' ? t.goldenStart : new Date(t.goldenStart.getTime() - 60 * 60000);
+    var legs = [];
+    for (var i = 1; i < order.length; i++) legs.push(M.distance([order[i - 1].lng, order[i - 1].lat], [order[i].lng, order[i].lat]) * 1.3 / 70 * 60000);
+    cursor = anchor.getTime();
+    for (i = lastIdx; i >= 0; i--) { plan[i] = new Date(cursor); if (i > 0) cursor -= stay + legs[i - 1]; }
+    var warn = '';
+    order.forEach(function (s, k) {
+      if (s.light === 'day' && plan[k] > t.goldenStart) warn = s.name + ' 需要白天，按这个节奏会太晚。';
+    });
+    var tooLate = now > plan[0];
+    return { order: order, times: plan, legs: legs, dayTimes: t, warn: warn, tooLate: tooLate };
+  }
+
+  function openRoute(id) {
+    var r = DATA.routes.filter(function (x) { return x.id === id; })[0]; if (!r) return;
+    clearSel();
+    var p = planRoute(r), pts = p.order.map(function (s) { return [s.lng, s.lat]; });
+    sel.push(map.line(pts, COLORS.route, 5, false));
+    p.order.forEach(function (s, k) { sel.push(map.addMarker(s.lng, s.lat, numSvg(k + 1), 30, function () { openSpot(s.id); })); drawView(s, 220); });
+    map.fit(pts);
+    var tl = p.order.map(function (s, k) {
+      var lc = lightCheck(s, p.times[k]);
+      return '<div class="ti"><div class="time">' + hm(p.times[k]) + '　' + esc(s.name) + '</div>' +
+        '<div class="muted">' + TYPE_NAME[s.type] + ' · ' + ({ day: '需要白天', golden: '黄金时刻', night: '夜景', any: '随时' }[s.light] || '') + '</div>' +
+        (k < p.legs.length ? '<div class="muted">↓ 步行约 ' + Math.max(1, Math.round(p.legs[k] / 60000)) + ' 分钟</div>' : '') + '</div>';
+    }).join('');
+    openSheet(
+      '<span class="tag route">路线</span><h2>' + esc(r.name) + '</h2>' +
+      '<p>' + esc(r.advice) + '</p>' +
+      '<div class="cond ' + (p.tooLate ? 'bad' : 'ok') + '"><span class="dot"></span><div>' +
+      (p.tooLate ? '今天已经赶不上最佳节奏了，建议明天 ' + hm(p.times[0]) + ' 左右出发。' : '按今天的日落时间（' + hm(p.dayTimes.sunset) + '）倒推，建议 ' + hm(p.times[0]) + ' 出发。') +
+      (p.warn ? '<br>' + esc(p.warn) : '') + '</div></div>' +
+      '<h3>自动排好的顺序</h3><p class="muted">系统按每个机位的光线条件排序：需要白天的先拍，黄金时刻卡在日落前，夜景留到最后。</p>' +
+      '<div class="timeline">' + tl + '</div>' +
+      '<div class="btn-row"><button class="btn-main" data-act="first">从第一站开始</button></div>'
+    );
+    bindSheet(function (act) { if (act === 'first') openSpot(p.order[0].id); });
+    return p;
+  }
+  function numSvg(n) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="13" fill="#2f7d6d" stroke="#fff" stroke-width="3"/><text x="15" y="20" text-anchor="middle" font-size="14" font-weight="700" fill="#fff" font-family="Arial">' + n + '</text></svg>';
+  }
+
+  // ---------------- 专业奇观：环金穿月预测 ----------------
+  function angDiff(a, b) { return Math.abs(((a - b) % 360 + 540) % 360 - 180); }
+  // 几何关系：站位到方孔的距离 d 必须让“塔尖”和“方孔”在画面里上下对齐：
+  //   (方孔高 - 机位高) / d = (塔尖高 - 机位高) / (d - 两楼间距 D)  =>  d = (方孔高-机位高)·D / (方孔高-塔尖高)
+  // 于是月亮必须出现在固定的方向（对齐线方位）和固定的高度，我们只需找出月亮何时经过这个点。
+  function wonderGeometry(w) {
+    var T = [w.target.lng, w.target.lat], F = [w.front.lng, w.front.lat];
+    var az0 = M.bearing(F, T), D = M.distance(F, T), hT = w.target.h - w.cameraHeight;
+    var dReq = hT * D / (w.target.h - w.front.h);
+    return { az0: az0, D: D, dist: dReq, alt: Math.atan(hT / dReq) * 180 / Math.PI,
+             cam: M.offset(T[0], T[1], (az0 + 180) % 360, dReq) };
+  }
+  function predictWonder(w, days) {
+    var g = wonderGeometry(w), T = [w.target.lng, w.target.lat], res = [];
+    var start = new Date(); start.setHours(0, 0, 0, 0);
+    for (var d = 0; d < days; d++) {
+      var day = new Date(start.getTime() + d * 86400000);
+      if (A.moonIllum(new Date(day.getTime() + 12 * 3600000)) < w.minIllum - 0.08) continue;
+      var best = null;
+      for (var m = 0; m < 1440; m++) {
+        var t = new Date(day.getTime() + m * 60000), mp = A.moon(t, T[1], T[0]);
+        if (Math.abs(mp.alt - g.alt) > 3) continue;
+        var dAz = angDiff(mp.az, g.az0), dAlt = Math.abs(mp.alt - g.alt);
+        var err = Math.sqrt(dAz * dAz + dAlt * dAlt);
+        if (err > 1.5) continue;
+        if (A.sun(t, T[1], T[0]).alt > -1) continue; // 太阳还在天上，天空太亮
+        var ill = A.moonIllum(t); if (ill < w.minIllum) continue;
+        if (!best || err < best.err) best = { time: t, az: mp.az, alt: mp.alt, err: err, illum: ill };
+      }
+      if (best) res.push(best);
+    }
+    res.sort(function (a, b) { return a.time - b.time; });
+    return { geo: g, az0: g.az0, list: res };
+  }
+  function grade(err) { return err < 0.3 ? '正中方孔' : err < 0.6 ? '穿过方孔' : err < 1 ? '贴着方孔边缘' : '擦边而过（可作备选）'; }
+
+  var WSTATE = { w: null, pred: null, cam: [] };
+  function openWonder(id, cb) {
+    var w = DATA.wonders.filter(function (x) { return x.id === id; })[0]; if (!w) return;
+    clearSel();
+    var T = [w.target.lng, w.target.lat], F = [w.front.lng, w.front.lat];
+    map.flyTo(w.target.lng, w.target.lat, 14);
+    openSheet('<span class="tag wonder">专业奇观</span><h2>' + esc(w.name) + '</h2><p>' + esc(w.desc) + '</p><p class="muted">正在计算未来一年的月亮位置…</p>');
+    setTimeout(function () {
+      var pred = predictWonder(w, 400);
+      WSTATE = { w: w, pred: pred, cam: [] };
+      // 对齐线：从方孔经过金茂塔尖向后延长，站在这条线上两栋楼才会对齐
+      var far = M.offset(T[0], T[1], (pred.az0 + 180) % 360, 9000);
+      sel.push(map.line([T, far], COLORS.wonder, 3, true));
+      sel.push(map.addMarker(F[0], F[1], dotSvg('#3b4b8c'), 18, null));
+      sel.push(map.addMarker(T[0], T[1], dotSvg('#3b4b8c'), 18, null));
+      var g = pred.geo, list = pred.list.slice(0, 8);
+      // 站位是唯一确定的：画出站位和它看向方孔的视线
+      sel.push(map.addMarker(g.cam[0], g.cam[1], markerSvg('wonder', true), 46, null));
+      sel.push(map.polygon(M.sectorPoints(g.cam[0], g.cam[1], g.az0, 3, g.dist + 400), COLORS.wonder, 0.25));
+      map.fit([g.cam, T]);
+      var cands = list.length ? list.map(function (c) {
+        return '<div class="cand"><div class="big">' + c.time.getFullYear() + '年' + md(c.time) + ' 周' + WEEK[c.time.getDay()] + ' ' + hm(c.time) + '</div>' +
+          '<div class="muted">' + grade(c.err) + ' · 偏差 ' + c.err.toFixed(2) + '° · 月面 ' + Math.round(c.illum * 100) + '%</div></div>';
+      }).join('') : '<p class="muted">未来一年内没有算到满足条件的时刻。</p>';
+      openSheet(
+        '<span class="tag wonder">专业奇观</span><h2>' + esc(w.name) + '</h2><p>' + esc(w.desc) + '</p>' +
+        '<h3>第一步：空间 · 站在哪</h3>' +
+        '<div class="cond ok"><span class="dot"></span><div>蓝色虚线是“对齐线”：从' + esc(w.target.name) + '穿过' + esc(w.front.name) + '向后延长，站在线上两栋楼才会对齐。' +
+        '在线上还要站到离方孔约 <b>' + (g.dist / 1000).toFixed(1) + ' 公里</b>处，塔尖才会刚好顶进方孔：这个点就是地图上的大圆点。</div></div>' +
+        '<h3>第二步：时间 · 什么时候</h3>' +
+        '<p>从这个站位看，月亮必须出现在方位 <b>' + g.az0.toFixed(1) + '°</b>、高度 <b>' + g.alt.toFixed(1) + '°</b>。系统逐分钟计算未来一年的月亮位置，找出月亮经过这一点、接近满月、而且天已经黑了的时刻：</p>' +
+        cands +
+        '<p class="muted">说明：楼的坐标和高度是近似值，两楼间距差 10 米，站位就会差约 90 米，所以结果是“候选日期和候选区域”。出发前还要看天气是否通透。</p>'
+      );
+      if (cb) cb(pred);
+    }, 60);
+  }
+  function dotSvg(c) { return '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><circle cx="9" cy="9" r="6" fill="' + c + '" stroke="#fff" stroke-width="2"/></svg>'; }
+
+  // ---------------- 演示模式 ----------------
+  var DEMO = { on: false, timer: null };
+  function caption(step, text) {
+    $('captionStep').textContent = step; $('captionText').textContent = text;
+    $('caption').classList.add('open'); $('caption').setAttribute('aria-hidden', 'false');
+  }
+  function stopDemo() {
+    DEMO.on = false; clearTimeout(DEMO.timer);
+    $('caption').classList.remove('open'); $('caption').setAttribute('aria-hidden', 'true');
+  }
+  function runScript(title, steps) {
+    stopDemo(); DEMO.on = true; var i = 0;
+    (function next() {
+      if (!DEMO.on || i >= steps.length) { if (DEMO.on) DEMO.timer = setTimeout(stopDemo, 2500); return; }
+      var st = steps[i++]; caption(title + ' · ' + i + '/' + steps.length, st.say);
+      try { if (st.act) st.act(); } catch (e) { console.error(e); }
+      DEMO.timer = setTimeout(next, st.wait || 4200);
+    })();
+  }
+  function guideDemoSteps(s) {
+    var arr = [{ say: '到了附近，切换到路书模式：定位误差有 5 到 15 米，所以最后一段不靠定位，靠一步一张的指路照片。', act: function () { openGuide(s); } }];
+    (s.guide || []).slice(1).forEach(function (g) { arr.push({ say: '走到照片里的位置，点“我到了”：' + g.text, act: guideNext, wait: 3200 }); });
+    arr.push({ say: '到达站位。指南针告诉你镜头该朝哪，拍法卡片告诉你怎么拍：视野就是取景框。', act: guideNext, wait: 5200 });
+    arr.push({ say: '完成后打卡、复刻同款，这个机位的“最近确认”时间也随之更新。', act: function () { closeGuide(); } });
+    return arr;
+  }
+  var DEMOS = [
+    { no: 1, type: 'classic', title: '经典同款：环形天桥看东方明珠', run: function () {
+      var s = spotById.ring;
+      runScript('经典同款', [
+        { say: '人人都见过的“上海明信片”画面。点开机位：站在哪、朝哪拍、用什么镜头，一目了然。', act: function () { setFilter('all'); openSpot('ring'); } },
+        { say: '系统结合此刻时间和日落时间判断：这是夜景机位，' + lightCheck(s).text, wait: 5200 },
+        { say: '扇形是取景框投影在地面的范围，橙色虚线是太阳方向：顺光还是逆光，出发前就知道。', wait: 4800 },
+        { say: '一键调用百度步行路线规划，从地铁站走到机位。', act: function () { navigate(s, true); }, wait: 5000 }
+      ].concat(guideDemoSteps(s)));
+    } },
+    { no: 2, type: 'route', title: '机位路线：北外滩出片线', run: function () {
+      var p;
+      runScript('机位路线', [
+        { say: '三个机位串成一条路线。关键不是距离最短，而是光线：桥下镜面天黑就失效。', act: function () { setFilter('route'); p = openRoute('bund-north'); }, wait: 5200 },
+        { say: '系统按每个机位的光线条件自动排序，并用今天的日落时间倒推出发时间。', wait: 5200 },
+        { say: '第一站之后先去桥下镜面：它需要白天，排在黄金时刻之前。', act: function () { openSpot('mirror'); }, wait: 5200 },
+        { say: '最后一站世界会客厅，正好赶上日落。', act: function () { openSpot('lounge'); }, wait: 4500 },
+        { say: '这就是“时间切面”：同一个位置，不同时刻，是完全不同的画面。', act: function () { openRoute('bund-north'); } }
+      ]);
+    } },
+    { no: 3, type: 'skill', title: '技法出片：三件套仰拍', run: function () {
+      var s = spotById.snowking;
+      runScript('技法出片', [
+        { say: '会找不等于会拍。这个机位的关键是拍法：背对“开瓶器”，镜头朝天，开广角。', act: function () { setFilter('all'); openSpot('snowking'); }, wait: 5200 },
+        { say: '拍法被拆成姿势、镜头、朝向、道具，照着做就能复刻。', wait: 4200 },
+        { say: '现场最好用的线索往往不是坐标，而是“地上趴着各种姿势拍照的人”。路书把这些线索按顺序串起来。', act: function () { navigate(s, true); }, wait: 5200 }
+      ].concat(guideDemoSteps(s)));
+    } },
+    { no: 4, type: 'wonder', title: '专业奇观：环金穿月', run: function () {
+      runScript('专业奇观', [
+        { say: '满月穿过环球金融中心的方孔，金茂塔尖顶在月亮中间。这是一道几何题：地图最擅长解几何题。', act: function () { setFilter('wonder'); openWonder('moon-swfc'); }, wait: 5600 },
+        { say: '蓝色虚线是对齐线：站在线上，两栋楼才会对齐。', wait: 4600 },
+        { say: '再算未来一年月亮的方向和高度，找出月亮正好沿对齐线升起、又接近满月的时刻，得到日期和站位。', wait: 5600 },
+        { say: '同一张地图：普通人找到能复刻的美，摄影师找到一年几次的奇观。', wait: 5000 }
+      ]);
+    } }
+  ];
+  function openDemoMenu() {
+    clearSel();
+    openSheet('<h2>演示</h2><p class="muted">每个演示自动走完：判断时间 → 规划路线 → 路书指路 → 构图指引。录制作品视频时直接用。</p>' +
+      DEMOS.map(function (d, k) {
+        return '<div class="demo-item" data-act="d' + k + '"><div class="demo-no" style="background:' + COLORS[d.type] + '">' + d.no + '</div><div><b>' + esc(d.title) + '</b></div></div>';
+      }).join(''));
+    bindSheet(function (act) { DEMOS[+act.slice(1)].run(); });
+  }
+
+  // ---------------- 筛选 ----------------
+  function setFilter(f) {
+    filter = f;
+    document.querySelectorAll('#chips button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-f') === f); });
+    drawMarkers();
+  }
+  function onChip(f) {
+    setFilter(f); closeSheet();
+    if (f.indexOf('c:') === 0) {
+      var key = f.slice(2), col = DATA.collections[key];
+      var list = DATA.spots.filter(function (s) { return s.collection === key; });
+      map.fit(list.map(function (s) { return [s.lng, s.lat]; }).concat(list.length === 1 ? [[list[0].lng + 0.01, list[0].lat + 0.01]] : []));
+      openSheet('<span class="tag classic">专题</span><h2>' + esc(col.name) + '</h2><p>' + esc(col.desc) + '</p>' +
+        list.map(function (s, k) { return '<div class="demo-item" data-act="s' + k + '"><div class="demo-no" style="background:' + COLORS[s.type] + '">' + (k + 1) + '</div><div><b>' + esc(s.name) + '</b><div class="muted">' + esc(s.area) + (s.status && s.status.note ? ' · ' + esc(s.status.note) : '') + '</div></div></div>'; }).join(''));
+      bindSheet(function (act) { openSpot(list[+act.slice(1)].id); });
+    } else if (f === 'mine') {
+      if (window.JWX) window.JWX.openMine();
+    } else if (f === 'route') {
+      openSheet('<span class="tag route">路线</span><h2>机位路线</h2>' + DATA.routes.map(function (r, k) {
+        return '<div class="demo-item" data-act="r' + k + '"><div class="demo-no" style="background:' + COLORS.route + '">' + (k + 1) + '</div><div><b>' + esc(r.name) + '</b><div class="muted">' + r.spotIds.length + ' 个机位</div></div></div>';
+      }).join(''));
+      bindSheet(function (act) { openRoute(DATA.routes[+act.slice(1)].id); });
+    } else if (f === 'wonder') {
+      openWonder(DATA.wonders[0].id);
+    } else {
+      map.flyTo(CFG.CENTER[0], CFG.CENTER[1], CFG.ZOOM);
+    }
+  }
+
+  // ---------------- 启动 ----------------
+  function start(useBaidu, reason) {
+    if (CFG.BRAND) { document.querySelector('.brand-name').textContent = CFG.BRAND; document.title = CFG.BRAND + ' · ' + (CFG.SLOGAN || ''); }
+    if (CFG.SLOGAN) document.querySelector('.brand-sub').textContent = CFG.SLOGAN;
+    map = M.create($('map'), CFG.CENTER, CFG.ZOOM, useBaidu);
+    $('statusPill').textContent = useBaidu ? '百度地图已连接' : '离线预览 · ' + (reason || '');
+    drawMarkers();
+    document.querySelectorAll('#chips button').forEach(function (b) { b.addEventListener('click', function () { onChip(b.getAttribute('data-f')); }); });
+    $('sheetClose').addEventListener('click', closeSheet);
+    $('guideExit').addEventListener('click', closeGuide);
+    $('guideNext').addEventListener('click', guideNext);
+    $('guidePrev').addEventListener('click', function () { if (G.i > 0) { G.i--; renderGuide(); } });
+    $('btnDemo').addEventListener('click', openDemoMenu);
+    $('captionStop').addEventListener('click', stopDemo);
+    // 调试入口：网址后面加 #demo1 ～ #demo4 可直接开始演示
+    setTimeout(function () { window.JW.ready = true; window.dispatchEvent(new Event('jw-ready')); }, 0);
+    var h = location.hash.match(/demo(\d)/); if (h && DEMOS[h[1] - 1]) setTimeout(function () { DEMOS[h[1] - 1].run(); }, 600);
+  }
+  M.load(CFG.BAIDU_AK, 8000, start);
+
+  function addSpot(s) { if (!spotById[s.id]) DATA.spots.push(s); spotById[s.id] = s; }
+  window.JW = { get map() { return map; }, spotById: spotById, addSpot: addSpot, drawMarkers: drawMarkers, openSheet: openSheet, closeSheet: closeSheet,
+    bindSheet: bindSheet, toast: toast, esc: esc, placeholder: placeholder, lightCheck: lightCheck, setFilter: setFilter, COLORS: COLORS, TYPE_NAME: TYPE_NAME,
+    clearSel: clearSel, sel: function (h) { sel.push(h); }, markerSvg: markerSvg, hm: hm, md: md, planRoute: planRoute, predictWonder: predictWonder, lightCheck: lightCheck, openSpot: openSpot, openRoute: openRoute, openWonder: openWonder, DEMOS: DEMOS };
+})();
