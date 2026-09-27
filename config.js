@@ -2,7 +2,7 @@
 // 把下面引号里的文字换成你在百度地图开放平台申请的“浏览器端”密钥（AK）
 // 例如：BAIDU_AK: 'aBcD1234xxxxxxxx',
 window.JW_CONFIG = {
-  BAIDU_AK: '在这里粘贴密钥',
+  BAIDU_AK: 'j5C7PgLRdXhl4FiLceoCV6ZDMGshPE46',
 
   // 作品名和一句话，定下来后改这里即可
   BRAND: '移步到位',
