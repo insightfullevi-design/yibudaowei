@@ -67,13 +67,28 @@
     function rat(o) { var d = u32(o + 4); return d ? u32(o) / d : 0; }
     function ifd(o, cb) { var n = u16(o); for (var i = 0; i < n; i++) { var e = o + 2 + i * 12; cb(u16(e), u16(e + 2), u32(e + 4), e + 8); } }
     function valOff(cnt, size, p) { return cnt * size > 4 ? t + u32(p) : p; }
+    // 按类型读一个数：短整数、长整数、分数、单/双精度小数都能读
+    function num(type, p) {
+      if (type === 3) return u16(p); if (type === 4) return u32(p);
+      if (type === 5) return rat(t + u32(p)); if (type === 10) { var q = t + u32(p), d = v.getInt32(q + 4, le); return d ? v.getInt32(q, le) / d : 0; }
+      if (type === 11) return v.getFloat32(p, le); if (type === 12) return v.getFloat64(t + u32(p), le);
+      return 0;
+    }
     function str(p, cnt) { var s = ''; for (var i = 0; i < cnt - 1; i++) s += String.fromCharCode(v.getUint8(p + i)); return s; }
     var exifPtr = 0, gpsPtr = 0;
-    ifd(t + u32(t + 4), function (tag, type, cnt, p) { if (tag === 0x8769) exifPtr = u32(p); if (tag === 0x8825) gpsPtr = u32(p); });
+    ifd(t + u32(t + 4), function (tag, type, cnt, p) {
+      if (tag === 0x8769) exifPtr = u32(p); if (tag === 0x8825) gpsPtr = u32(p);
+      if (tag === 0x010F) out.make = str(valOff(cnt, 1, p), cnt).trim();
+      if (tag === 0x0110) out.model = str(valOff(cnt, 1, p), cnt).trim();
+    });
     if (exifPtr) ifd(t + exifPtr, function (tag, type, cnt, p) {
       if (tag === 0x9003) out.time = str(valOff(cnt, 1, p), cnt);
-      if (tag === 0xA405) out.f35 = u16(p);
-      if (tag === 0x920A) out.focal = rat(valOff(1, 8, p));
+      if (tag === 0xA405) out.f35 = num(type, p);
+      if (tag === 0x920A) out.focal = num(type, p);
+      if (tag === 0x829A) out.exposure = num(type, p);
+      if (tag === 0x829D) out.fnum = num(type, p);
+      if (tag === 0x8827) out.iso = num(type, p);
+      if (tag === 0xA434) out.lens = str(valOff(cnt, 1, p), cnt).trim();
     });
     if (gpsPtr) {
       var g = {};
@@ -90,46 +105,44 @@
   // 等效焦距 → 画面左右视角（35mm 画幅宽 36mm）
   function fovFrom(f35) { return f35 ? Math.round(2 * Math.atan(18 / f35) * 180 / Math.PI) : 70; }
 
-  // ---------------- 上传机位 ----------------
-  // 流程：选原图（自动读位置、朝向、焦段）→ 确认站位（照片定位 / 我现在的位置 / 地图点选）→ 填名称和玩法 → 路书（每步一张照片 + 一句话）→ 发布；随时可存草稿
+  // ---------------- 上传机位：像发帖子一样 ----------------
+  // 选原图（自动读出地点、时间、设备和相机参数）→ 确认站位 → 标题 + 正文 + 标签 → 可选路书 → 发布；随时可存草稿
   var up = null;
   function draftKey() { return 'yjdw_draft_' + myId(); }
   function readDraft() { try { return JSON.parse(localStorage.getItem(draftKey()) || 'null'); } catch (e) { return null; } }
+  var TAG_SUGGEST = ['夜景', '日落', '仰拍', '广角', '倒影', '影视同款', '人民币里的中国', '地球online', '热门地标', '免费', '需预约', '人少'];
   function openUpload() {
-    up = { photo: null, pos: null, heading: 0, fov: 70, handles: [], steps: [{ text: '', photo: null }], posFrom: '' };
+    up = { photo: null, pos: null, heading: 0, fov: 70, handles: [], steps: [{ text: '', photo: null }], posFrom: '', tags: [] };
     JW.clearSel();
     var d = readDraft();
     JW.openSheet(
-      '<span class="tag skill">上传机位</span><h2>分享一个你发现的好角度</h2>' +
+      '<span class="tag skill">发布机位</span><h2>分享一个你发现的好角度</h2>' +
       (d ? '<div class="cond wait"><span class="dot"></span><div>有一份 ' + JW.esc(d.saved || '') + ' 存的草稿。<button class="link" data-act="loaddraft">继续编辑</button> · <button class="link" data-act="dropdraft">丢弃</button></div></div>' : '') +
-      '<h3>1 · 成片</h3>' +
-      '<p class="tip">请<b>直接从手机相册选原图</b>。经过微信、小红书转发的照片会丢失拍摄位置和朝向。</p>' +
-      '<label class="upload-drop" id="upDrop"><input type="file" accept="image/*" id="upFile" hidden><span id="upDropText">＋ 从相册选择成片原图</span></label>' +
+      '<h3>1 · 照片</h3>' +
+      '<p class="tip">请<b>直接从手机相册选原图</b>，会自动读出拍摄地点、时间、设备和相机参数。经过微信、小红书转发的照片会丢失这些信息。</p>' +
+      '<label class="upload-drop" id="upDrop"><input type="file" accept="image/*" id="upFile" hidden><span id="upDropText">＋ 从相册选择原图</span></label>' +
+      '<div id="upMeta"></div>' +
       '<h3>2 · 站位</h3><div id="upInfo"></div>' +
       '<div class="btn-row"><button class="btn-ghost" data-act="here">📍 用我现在的位置</button><button class="btn-ghost" data-act="pick">在地图上点选</button></div>' +
       '<div class="form">' + field('镜头朝向', '<input id="upHeading" type="range" min="0" max="359" value="0"><span id="upHeadingVal" class="muted">0°</span>') + '</div>' +
-      '<h3>3 · 机位信息</h3><div class="form">' +
-      field('名称', '<input id="upName" placeholder="例如：白玉兰桥下·颠倒世界">') +
-      field('玩法', '<select id="upType"><option value="classic">拍同款</option><option value="skill" selected>拍大片</option><option value="wonder">等奇观</option></select>') +
-      field('专题（可选）', '<select id="upCol"><option value="">不归入专题</option><option value="film">影视同款</option><option value="rmb">人民币里的中国</option><option value="textbook">地球 online</option><option value="landmark">热门地标打卡</option></select>') +
-      field('光线条件', '<select id="upLight"><option value="any">随时都行</option><option value="day">需要白天</option><option value="golden">黄金时刻最佳</option><option value="night">夜景</option></select>') +
-      field('一句话介绍', '<input id="upSummary" placeholder="这个机位妙在哪">') +
-      field('拍法（可选）', '<input id="upPose" placeholder="姿势，如：手机贴近桥底，镜头朝上"><input id="upLens" placeholder="镜头，如：广角 0.5 倍"><input id="upPost" placeholder="后期或道具">') +
-      '<details class="more"><summary>名场面信息（可选）</summary>' +
-      field('来源作品', '<input id="upWork" placeholder="如：小时代">') + field('场景', '<input id="upMoment" placeholder="如：众人从楼梯走下">') +
-      field('台词', '<input id="upLine" placeholder="生成对比图时作为字幕">') + field('剧中地点 / 实际拍摄地', '<input id="upStory" placeholder="剧中地点"><input id="upReal" placeholder="实际拍摄地">') + '</details>' +
-      field('进入与规则（可选）', '<input id="upAccess" placeholder="如：免费、全天开放；或需门票、需预约">') + '</div>' +
-      '<h3>4 · 路书：最后一段怎么走</h3><p class="tip">从最近的地铁口或路口开始，每个转弯拍一张照片、写一句话。定位不准的地方，就靠它把人带到位。</p>' +
+      '<h3>3 · 写帖子</h3><div class="form">' +
+      field('标题（机位名称）', '<input id="upName" maxlength="30" placeholder="例如：白玉兰桥下·颠倒世界">') +
+      field('正文', '<textarea id="upBody" rows="5" placeholder="分享出片经验和机位细节：几点来光线最好、具体站在哪、用什么镜头和姿势、有没有门票或人流、要注意什么……"></textarea>') +
+      '<label class="field"><span>标签（会用来归类成专题）</span><div class="tag-ed" id="upTags"></div><input id="upTagIn" placeholder="输入标签，按回车添加"></label>' +
+      '<div class="tag-sug" id="upSug"></div></div>' +
+      '<h3>4 · 路书（可选）：最后一段怎么走</h3><p class="tip">从最近的地铁口或路口开始，每个转弯拍一张照片、写一句话。定位不准的地方，就靠它把人带到位。</p>' +
       '<div id="upSteps"></div><button class="btn-ghost wide" data-act="addstep">＋ 再加一步</button>' +
       '<p class="muted">发布规则：只收录能合法进入的地点；不要用含他人正脸的照片做封面。</p>' +
-      '<div class="btn-row publish-row"><button class="btn-ghost" data-act="draft">存草稿</button><button class="btn-main" data-act="save">发布机位</button></div>'
+      '<div class="btn-row publish-row"><button class="btn-ghost" data-act="draft">存草稿</button><button class="btn-main" data-act="save">发布</button></div>'
     );
     document.getElementById('sheet').classList.add('tall');
     $('upFile').addEventListener('change', onPhoto);
-    $('upHeading').addEventListener('input', function () { up.heading = +this.value; $('upHeadingVal').textContent = up.heading + '°'; drawUp(); });
-    renderSteps(); info();
+    $('upHeading').addEventListener('input', function () { up.heading = +this.value; $('upHeadingVal').textContent = up.heading + '°'; drawUp(true); });
+    $('upTagIn').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ',' || e.key === '，') { e.preventDefault(); addTag(this.value); this.value = ''; } });
+    $('upTagIn').addEventListener('blur', function () { if (this.value.trim()) { addTag(this.value); this.value = ''; } });
+    renderSteps(); renderTags(); info(); meta();
     JW.bindSheet(function (act) {
-      if (act === 'pick') { JW.toast('在地图上点一下你拍照时站的位置'); document.getElementById('sheet').classList.remove('tall'); JW.map.pick(function (p) { up.pos = p; up.posFrom = '地图点选'; drawUp(); info(); document.getElementById('sheet').classList.add('tall'); JW.toast('站位已更新'); }); }
+      if (act === 'pick') startPick();
       if (act === 'here') hereNow();
       if (act === 'addstep') { collectSteps(); up.steps.push({ text: '', photo: null }); renderSteps(); }
       if (act === 'draft') saveDraft();
@@ -137,6 +150,63 @@
       if (act === 'dropdraft') { try { localStorage.removeItem(draftKey()); } catch (e) {} JW.toast('草稿已丢弃'); openUpload(); }
       if (act === 'save') publish();
     });
+  }
+  // 标签
+  function addTag(t) {
+    t = String(t || '').replace(/^#+/, '').replace(/[,，\s]+/g, '').slice(0, 12); if (!t) return;
+    if (up.tags.indexOf(t) < 0) { if (up.tags.length >= 8) return JW.toast('最多 8 个标签'); up.tags.push(t); }
+    renderTags();
+  }
+  function renderTags() {
+    var box = $('upTags'); if (!box) return;
+    box.innerHTML = up.tags.map(function (t, i) { return '<span class="tag-chip">#' + JW.esc(t) + '<button data-deltag="' + i + '" aria-label="删除标签">×</button></span>'; }).join('');
+    box.querySelectorAll('[data-deltag]').forEach(function (b) { b.onclick = function (e) { e.preventDefault(); up.tags.splice(+b.getAttribute('data-deltag'), 1); renderTags(); }; });
+    $('upSug').innerHTML = TAG_SUGGEST.filter(function (t) { return up.tags.indexOf(t) < 0; }).map(function (t) { return '<button data-sug="' + t + '">#' + t + '</button>'; }).join('');
+    $('upSug').querySelectorAll('[data-sug]').forEach(function (b) { b.onclick = function (e) { e.preventDefault(); addTag(b.getAttribute('data-sug')); }; });
+  }
+  // 照片信息：地点、时间、设备、相机参数
+  function meta() {
+    var box = $('upMeta'); if (!box) return;
+    var e = up.exif; if (!up.photo || !e) { box.innerHTML = ''; return; }
+    var rows = [];
+    rows.push(['拍摄地点', e.lat ? (up.addr || e.lat.toFixed(5) + ', ' + e.lng.toFixed(5)) : '照片里没有位置信息']);
+    if (e.time) rows.push(['拍摄时间', e.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3')]);
+    var dev = [e.make && e.model && e.model.indexOf(e.make) < 0 ? e.make : '', e.model].filter(Boolean).join(' ');
+    if (dev) rows.push(['拍摄设备', dev]);
+    var cam = [e.focal ? Math.round(e.focal * 10) / 10 + 'mm' : '', e.f35 ? '等效 ' + e.f35 + 'mm' : '', e.fnum ? 'f/' + (Math.round(e.fnum * 10) / 10) : '', e.exposure ? (e.exposure >= 1 ? e.exposure + 's' : e.exposure >= 0.3 ? e.exposure.toFixed(1) + 's' : '1/' + Math.round(1 / e.exposure) + 's') : '', e.iso ? 'ISO ' + e.iso : ''].filter(Boolean).join(' · ');
+    if (cam) rows.push(['相机参数', cam]);
+    if (e.lens) rows.push(['镜头', e.lens]);
+    // 用百度逆地理编码把坐标翻译成地址
+    if (e.lat && !up.addr && !up.addrTried && window.BMapGL && BMapGL.Geocoder) {
+      up.addrTried = true; var p0 = M.wgs2bd(e.lng, e.lat);
+      try { new BMapGL.Geocoder().getLocation(new BMapGL.Point(p0[0], p0[1]), function (r) { if (r && r.address) { up.addr = r.address; meta(); } }); } catch (er) {}
+    }
+    box.innerHTML = '<div class="meta-card">' + rows.map(function (r) { return '<div><span>' + r[0] + '</span><b>' + JW.esc(r[1]) + '</b></div>'; }).join('') + '</div>';
+  }
+  // 在地图上点选：上传卡片降下去，点地图放点，点 ✓ 锁定后卡片回来
+  var picking = null;
+  function startPick() {
+    picking = { before: up.pos, beforeFrom: up.posFrom };
+    document.getElementById('sheet').classList.add('lowered'); document.body.classList.add('picking');
+    var bar = document.getElementById('pickBar');
+    if (!bar) { bar = document.createElement('div'); bar.id = 'pickBar'; document.body.appendChild(bar); }
+    bar.innerHTML = '<div class="pick-t"><b>点地图，放到你拍照时站的位置</b><span id="pickHint">' + (up.pos ? '已有站位，可以点别处改' : '还没选') + '</span></div>' +
+      '<button class="pick-x" id="pickCancel" aria-label="取消">取消</button><button class="pick-ok" id="pickOk" aria-label="确定站位">✓</button>';
+    $('pickCancel').onclick = function () { up.pos = picking.before; up.posFrom = picking.beforeFrom; endPick(); };
+    $('pickOk').onclick = function () { if (!up.pos) return JW.toast('先在地图上点一下'); up.posFrom = '地图点选'; endPick(); JW.toast('站位已锁定'); };
+    (function arm() {
+      JW.map.pick(function (p) {
+        if (!picking) return;
+        up.pos = p; drawUp(true); var h = $('pickHint'); if (h) h.textContent = '已放好，点 ✓ 锁定；也可以再点别处';
+        arm();
+      });
+    })();
+  }
+  function endPick() {
+    picking = null;
+    document.body.classList.remove('picking'); document.getElementById('sheet').classList.remove('lowered');
+    var bar = document.getElementById('pickBar'); if (bar) bar.innerHTML = '';
+    drawUp(true); info();
   }
   function hereNow() {
     if (!navigator.geolocation) return JW.toast('这个浏览器不支持定位');
@@ -164,10 +234,10 @@
     box.querySelectorAll('[data-del]').forEach(function (b) { b.addEventListener('click', function (e) { e.preventDefault(); collectSteps(); up.steps.splice(+b.getAttribute('data-del'), 1); renderSteps(); }); });
   }
   function collectSteps() { document.querySelectorAll('#upSteps [data-steptext]').forEach(function (t) { var i = +t.getAttribute('data-steptext'); if (up.steps[i]) up.steps[i].text = t.value.trim(); }); }
-  var FORM_IDS = ['upName', 'upType', 'upCol', 'upLight', 'upSummary', 'upPose', 'upLens', 'upPost', 'upWork', 'upMoment', 'upLine', 'upStory', 'upReal', 'upAccess'];
+  var FORM_IDS = ['upName', 'upBody'];
   function saveDraft() {
     collectSteps();
-    var d = { saved: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }), f: {}, photo: up.photo, pos: up.pos, posFrom: up.posFrom, heading: up.heading, fov: up.fov, exif: up.exif || {}, steps: up.steps };
+    var d = { saved: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }), f: {}, photo: up.photo, pos: up.pos, posFrom: up.posFrom, heading: up.heading, fov: up.fov, exif: up.exif || {}, steps: up.steps, tags: up.tags };
     FORM_IDS.forEach(function (id) { var el = $(id); if (el) d.f[id] = el.value; });
     try { localStorage.setItem(draftKey(), JSON.stringify(d)); JW.toast('草稿已存在这台手机上'); }
     catch (e) {
@@ -180,11 +250,11 @@
     openUpload();
     Object.keys(d.f || {}).forEach(function (id) { var el = $(id); if (el) el.value = d.f[id]; });
     up.photo = d.photo; up.pos = d.pos; up.posFrom = d.posFrom || ''; up.heading = d.heading || 0; up.fov = d.fov || 70; up.exif = d.exif || {};
-    up.steps = d.steps && d.steps.length ? d.steps : [{ text: '', photo: null }];
+    up.steps = d.steps && d.steps.length ? d.steps : [{ text: '', photo: null }]; up.tags = d.tags || [];
     if (up.photo) $('upDrop').innerHTML = '<img src="' + up.photo + '" alt="成片">';
     $('upHeading').value = up.heading; $('upHeadingVal').textContent = up.heading + '°';
     var c = document.querySelector('#sheetBody .cond.wait'); if (c) c.remove();
-    renderSteps(); drawUp(); info(); JW.toast('已载入草稿');
+    renderSteps(); renderTags(); drawUp(); info(); meta(); JW.toast('已载入草稿');
   }
   function field(label, html) { return '<label class="field"><span>' + label + '</span>' + html + '</label>'; }
   function onPhoto(e) {
@@ -193,12 +263,12 @@
     f.slice(0, 256 * 1024).arrayBuffer().then(function (buf) { try { exif = readExif(buf); } catch (err) { exif = {}; } return readAsDataURL(f); })
       .then(function (url) { return shrink(url, 1280, 0.8); })
       .then(function (small) {
-        up.photo = small; up.exif = exif;
+        up.photo = small; up.exif = exif; up.addr = ''; up.addrTried = false;
         $('upDrop').innerHTML = '<img src="' + small + '" alt="成片">';
         if (exif.lat) { up.pos = M.wgs2bd(exif.lng, exif.lat); up.posFrom = '照片里的拍摄位置'; }
         if (exif.heading != null) { up.heading = Math.round(exif.heading) % 360; $('upHeading').value = up.heading; $('upHeadingVal').textContent = up.heading + '°'; }
         up.fov = fovFrom(exif.f35);
-        drawUp(); info();
+        drawUp(); info(); meta();
         if (!exif.lat) JW.toast('这张照片里没有位置信息，可能是转发过的图。可以点“用我现在的位置”或在地图上点选', 4500);
       }).catch(function () { JW.toast('这张照片读取失败，换一张试试'); });
   }
@@ -210,32 +280,39 @@
     if (e.time) rows.push('拍摄时间：' + e.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3'));
     $('upInfo').innerHTML = '<div class="cond ' + (up.pos ? 'ok' : 'wait') + '"><span class="dot"></span><div>' + rows.join('<br>') + '</div></div>';
   }
-  function drawUp() {
+  function drawUp(noFly) {
     up.handles.forEach(function (h) { JW.map.remove(h); }); up.handles = [];
     if (!up.pos) return;
     up.handles.push(JW.map.polygon(M.sectorPoints(up.pos[0], up.pos[1], up.heading, up.fov, 400), JW.COLORS.skill, 0.2));
     up.handles.push(JW.map.addMarker(up.pos[0], up.pos[1], JW.markerSvg('skill', true), 46, null));
-    JW.map.flyTo(up.pos[0], up.pos[1], 17);
+    if (!noFly) JW.map.flyTo(up.pos[0], up.pos[1], 17);
   }
   function publish() {
     collectSteps();
     var name = $('upName').value.trim();
-    if (!up.photo) return JW.toast('先从相册选一张成片');
+    if (!up.photo) return JW.toast('先从相册选一张原图');
     if (!up.pos) return JW.toast('还不知道站位：用你现在的位置，或在地图上点选');
-    if (!name) return JW.toast('给机位起个名字');
+    if (!name) return JW.toast('写个标题（机位名称）');
     if (CLOUD && !Cloud.me()) { JW.toast('发布前请先登录'); return openAccount('login', '登录后发布的机位所有人都能看到，并署上你的名字'); }
-    var type = $('upType').value, work = $('upWork').value.trim();
+    var body = $('upBody').value.trim(), tags = up.tags.slice(), e = up.exif || {};
+    if (!body) return JW.toast('写几句出片经验或机位细节吧');
+    // 由标签推出玩法和专题，由拍摄时间推出光线条件（发帖时不用再选）
+    var tj = tags.join(' ');
+    var type = /奇观|穿月|悬日|月亮/.test(tj) ? 'wonder' : /同款|影视|电影|剧|人民币|课本|地球online|动漫|圣地/.test(tj) ? 'classic' : 'skill';
+    var col = /影视|电影|剧|动漫|圣地/.test(tj) ? 'film' : /人民币/.test(tj) ? 'rmb' : /地球online|课本/.test(tj) ? 'textbook' : /地标/.test(tj) ? 'landmark' : undefined;
+    var hr = e.time ? +e.time.slice(11, 13) : -1;
+    var light = /夜景|夜/.test(tj) ? 'night' : /日落|黄金/.test(tj) ? 'golden' : hr >= 19 || (hr >= 0 && hr < 5) ? 'night' : hr >= 16 ? 'golden' : hr >= 5 ? 'day' : 'any';
     var steps = up.steps.filter(function (st) { return st.text || st.photo; });
+    var dev = [e.make && e.model && e.model.indexOf(e.make) < 0 ? e.make : '', e.model].filter(Boolean).join(' ');
     var s = {
-      id: 'u' + Date.now(), mine: true, type: type, area: '我上传的', name: name, collection: $('upCol').value || undefined,
+      id: 'u' + Date.now(), mine: true, type: type, area: '网友发现', name: name, collection: col,
       lng: up.pos[0], lat: up.pos[1], heading: up.heading, fov: up.fov,
-      cover: up.photo, coverHint: name, summary: $('upSummary').value.trim() || '网友发现的机位',
-      technique: { pose: $('upPose').value.trim(), lens: $('upLens').value.trim(), facing: '镜头朝向 ' + up.heading + '°', post: $('upPost').value.trim(), prop: '' },
-      light: $('upLight').value, lightNote: '',
-      access: { fee: '', booking: '', hours: $('upAccess').value.trim() },
+      cover: up.photo, coverHint: name, summary: body.split('\n')[0].slice(0, 60), post: body, tags: tags,
+      photoMeta: { place: up.addr || '', time: e.time || '', device: dev, lens: e.lens || '', focal: e.focal || null, f35: e.f35 || null, fnum: e.fnum || null, exposure: e.exposure || null, iso: e.iso || null },
+      technique: {}, light: light, lightNote: e.time ? '作者拍摄于 ' + e.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3') : '',
+      access: { fee: '', booking: '', hours: '' },
       guide: steps.map(function (st) { return { text: st.text || '（见照片）', photo: st.photo || null }; }),
-      crowd: '', status: { ok: true, date: today(), note: '刚刚发布' }, source: '网友上传',
-      scene: work ? { source: '影视名场面', work: work, moment: $('upMoment').value.trim(), line: $('upLine').value.trim(), storyPlace: $('upStory').value.trim(), realPlace: $('upReal').value.trim() } : null
+      crowd: '', status: { ok: true, date: today(), note: '刚刚发布' }, source: '网友发帖', scene: null
     };
     function done(sp) {
       up.handles.forEach(function (h) { JW.map.remove(h); });
@@ -254,7 +331,7 @@
       return Cloud.addSpot(data);
     }).then(function (row) {
       var sp = fromRow(row, { [row.user_id]: myProfile || { nickname: '我' } }); store.spots.push(sp); done(sp);
-    }).catch(function (e) { JW.toast('发布失败：' + e.message + '（可以先存草稿）', 4500); if (btn) { btn.disabled = false; btn.textContent = '发布机位'; } });
+    }).catch(function (e) { JW.toast('发布失败：' + e.message + '（可以先存草稿）', 4500); if (btn) { btn.disabled = false; btn.textContent = '发布'; } });
   }
 
   // ---------------- 打卡：一段旅途、一个地标、一条路线、一段时光 ----------------
@@ -609,7 +686,7 @@
     JW = window.JW; load();
     checkIdle(); setInterval(checkIdle, 30000);
     if (CLOUD) Cloud.onChange(function (ses) { if (ses) touch(); });
-    document.getElementById('sheetClose').addEventListener('click', function () { document.getElementById('sheet').classList.remove('tall'); });
+    document.getElementById('sheetClose').addEventListener('click', function () { document.getElementById('sheet').classList.remove('tall'); if (picking) endPick(); });
     if (CLOUD) { store.spots = []; store.checkins = []; }
     store.spots.forEach(function (s) { JW.addSpot(s); });
     Object.keys(JW.spotById).forEach(function (id) { var s = JW.spotById[id]; s._baseCheckins = s.checkins || 0; });

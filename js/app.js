@@ -252,7 +252,9 @@
       '<h2>' + esc(s.name) + '</h2><div class="muted">' + esc(s.area) + (s.heading != null ? ' · 镜头朝向 ' + Math.round(s.heading) + '°' : ' · 镜头朝天') + '</div>' +
       '<div class="rx-row" data-rxbox="' + esc(s.id) + '">' + (window.Social ? window.Social.buttons(s.id) : '') + '</div>' +
       '<div class="cover">' + coverHtml(s) + '</div>' +
-      '<p>' + esc(s.summary) + '</p>' + sceneHtml(s) +
+      (s.post ? '<div class="post">' + esc(s.post).replace(/\n/g, '<br>') + '</div>' : '<p>' + esc(s.summary) + '</p>') +
+      (s.tags && s.tags.length ? '<div class="post-tags">' + s.tags.map(function (t) { return '<span>#' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
+      photoMetaHtml(s) + sceneHtml(s) +
       '<div class="cond ' + lc.cls + '"><span class="dot"></span><div>' + esc(lc.text) + (s.lightNote ? '<br><span class="muted">' + esc(s.lightNote) + '</span>' : '') + '</div></div>' +
       '<div class="btn-row">' +
         '<button class="btn-ghost" data-act="copy">预览拍法</button><button class="btn-ghost" data-act="share">分享</button>' +
@@ -280,6 +282,13 @@
       if (act === 'copy') window.JWX && window.JWX.camera(s);
       if (act === 'share') window.JWX && window.JWX.share(s);
     });
+  }
+  // 作者照片里的拍摄信息：时间、设备、相机参数
+  function photoMetaHtml(s) {
+    var m = s.photoMeta; if (!m) return '';
+    var cam = [m.focal ? Math.round(m.focal * 10) / 10 + 'mm' : '', m.f35 ? '等效 ' + m.f35 + 'mm' : '', m.fnum ? 'f/' + Math.round(m.fnum * 10) / 10 : '', m.exposure ? (m.exposure >= 0.3 ? (+m.exposure).toFixed(1) + 's' : '1/' + Math.round(1 / m.exposure) + 's') : '', m.iso ? 'ISO ' + m.iso : ''].filter(Boolean).join(' · ');
+    var rows = [['拍摄地点', m.place], ['拍摄时间', m.time ? m.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3') : ''], ['拍摄设备', m.device], ['相机参数', cam], ['镜头', m.lens]].filter(function (r) { return r[1]; });
+    return rows.length ? '<div class="meta-card">' + rows.map(function (r) { return '<div><span>' + r[0] + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') + '</div>' : '';
   }
   // 名场面信息：来源作品、场景、台词、剧中地点 vs 实际拍摄地
   function sceneHtml(s) {

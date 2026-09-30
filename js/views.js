@@ -152,7 +152,7 @@
       var q = String(key || '').trim().toLowerCase(); title = '搜索“' + key + '”';
       var hit = allSpots().filter(function (s) {
         var col = s.collection && window.JW_DATA.collections[s.collection] ? window.JW_DATA.collections[s.collection].name : '';
-        return [s.name, s.area, s.summary, col, JW.TYPE_NAME[s.type], s.scene && s.scene.work, s.scene && s.scene.realPlace, s.author && s.author.name].join(' ').toLowerCase().indexOf(q) >= 0;
+        return [s.name, s.area, s.summary, col, JW.TYPE_NAME[s.type], s.scene && s.scene.work, s.scene && s.scene.realPlace, s.author && s.author.name, (s.tags || []).join(' '), s.post].join(' ').toLowerCase().indexOf(q) >= 0;
       });
       var rts = []; // 路线入口暂时下线：以后按临近点位或同主题自动生成路线，数据和编排逻辑都保留着
       items = rts.map(function (r) { return row({ id: 'r:' + r.id, name: r.name, sub: r.spotIds.length + ' 个机位 · 路线', art: JW.placeholder(r.spotIds.length + ' 个机位', 'route', false) }); }).concat(hit.map(spotRow));
