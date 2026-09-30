@@ -51,13 +51,9 @@
       '<circle cx="20" cy="20" r="' + r + '" fill="#ffffff" stroke="' + c + '" stroke-width="3"/>' +
       (count > 1 ? '<text x="20" y="24.5" text-anchor="middle" font-size="12" font-weight="700" font-family="Arial,sans-serif" fill="#0f0f0f">' + count + '</text>' : '<circle cx="20" cy="20" r="3.5" fill="' + c + '"/>') + '</svg>';
   }
-  // 相近机位合并：相距 8 米以内、镜头朝向相差不到 45° 的算同一个机位
-  function sameView(a, b) {
-    if (M.distance([a.lng, a.lat], [b.lng, b.lat]) > 8) return false;
-    if (a.heading == null || b.heading == null) return true;
-    var d = Math.abs(((a.heading - b.heading) % 360 + 540) % 360 - 180);
-    return d <= 45;
-  }
+  // 相近机位合并：不同用户上传的照片，定位相距 15 米以内的合并成一个点位
+  var MERGE_M = 15;
+  function sameView(a, b) { return M.distance([a.lng, a.lat], [b.lng, b.lat]) <= MERGE_M; }
   function clusters() {
     var list = DATA.spots.filter(visible).slice().sort(function (a, b) { return (b.cover ? 1 : 0) - (a.cover ? 1 : 0); }), out = [];
     list.forEach(function (s) {
@@ -69,7 +65,7 @@
   function openCluster(c) {
     if (c.members.length < 2) return openSpot(c.lead.id);
     var s = c.lead; clearSel(); highlight(s.id, s.type, s.lng, s.lat); drawView(s); map.flyTo(s.lng, s.lat, 18);
-    openSheet('<span class="tag">同一个机位</span><h2>' + esc(s.name) + '</h2><div class="muted">这里有 ' + c.members.length + ' 张相似的照片，左右滑动看看 · <span id="galIdx">1</span> / ' + c.members.length + '</div>' +
+    openSheet('<span class="tag">同一个机位</span><h2>' + esc(s.name) + '</h2><div class="muted">这里有 ' + c.members.length + ' 张照片，左右滑动看看 · <span id="galIdx">1</span> / ' + c.members.length + '</div>' +
       '<div class="gal" id="gal">' + c.members.map(function (m) {
         return '<figure class="gal-item"><div class="gal-img">' + coverHtml(m) + '</div><figcaption><b>' + esc(m.name) + '</b><span>' + esc(m.author ? m.author.name : (m.area || '')) + (m.photoMeta && m.photoMeta.time ? ' · ' + esc(m.photoMeta.time.slice(0, 10).replace(/:/g, '-')) : '') + '</span></figcaption>' +
           '<button class="gal-more" data-act="d:' + esc(m.id) + '">查看详情 ›</button></figure>';
