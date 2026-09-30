@@ -321,5 +321,46 @@ window.JW_TOPIC = function (s, k) {
 // 用户发帖的标签 → 专题
 window.JW_TAGTOPIC = function (t) {
   return /影视|电影|剧|动漫|圣地/.test(t) ? 'film' : /明星|偶像|爱豆/.test(t) ? 'star' : /书本|课本|地球online|藏书/.test(t) ? 'textbook'
-    : /钞能力|人民币/.test(t) ? 'rmb' : /地标/.test(t) ? 'landmark' : /创意|倒影|仰拍|借位/.test(t) ? 'creative' : /奇观|穿月|悬日/.test(t) ? 'wonder' : null;
+    : /钞能力|人民币/.test(t) ? 'rmb' : /地标/.test(t) ? 'landmark' : /创意|倒影|仰拍|借位/.test(t) ? 'creative' : /奇观|穿月|悬日|日照金山|云海|平流雾|火烧云|彩虹|银河|星轨/.test(t) ? 'wonder' : null;
 };
+
+// 限定奇观：类型、多久出现一次、推算“下一次”
+window.JW_WONDER = (function () {
+  var KINDS = ['悬日', '穿月', '日照金山', '云海', '平流雾', '火烧云', '彩虹', '银河星轨', '雾凇雪景', '花期', '其他'];
+  var FREQS = [['yearly', '每年固定几天'], ['season', '每年特定季节'], ['monthly', '每月（跟着月相）'], ['weather', '看天气'], ['rare', '可遇不可求']];
+  var DEF = { '悬日': 'yearly', '穿月': 'monthly', '日照金山': 'weather', '云海': 'weather', '平流雾': 'weather', '火烧云': 'weather', '彩虹': 'weather', '银河星轨': 'season', '雾凇雪景': 'season', '花期': 'season' };
+  var WEATHER = { '日照金山': '晴朗无云的日出', '云海': '雨后初晴的清晨', '平流雾': '湿度大、风小的清晨', '火烧云': '雨后傍晚、西边天空有云', '彩虹': '阵雨刚停、背对太阳' };
+  function freqName(k) { for (var i = 0; i < FREQS.length; i++) if (FREQS[i][0] === k) return FREQS[i][1]; return ''; }
+  // 照片时间 "2026:01:03 07:12:00" 或 "2026-01-03T07:12"
+  function parse(t) { var m = String(t || '').match(/^(\d{4})[:\-](\d{1,2})[:\-](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/); return m ? new Date(+m[1], m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) : null; }
+  function md(d) { return (d.getMonth() + 1) + '月' + d.getDate() + '日'; }
+  function ymd(d, now) { return (d.getFullYear() !== now.getFullYear() ? d.getFullYear() + '年' : '') + md(d); }
+  function hm(d) { return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
+  // 把“月-日”挪到今天之后最近的一年
+  function nextSameDay(d, now) { var n = new Date(now.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()); if (n < now - 864e5) n.setFullYear(n.getFullYear() + 1); return n; }
+  // 太阳轨迹以夏至、冬至对称：悬日一年有两个窗口
+  function mirror(d) {
+    var y = d.getFullYear(), sum = new Date(y, 5, 21), win = new Date(d.getMonth() >= 8 ? y : y - 1, 11, 21);
+    var sol = Math.abs(d - sum) < Math.abs(d - win) ? sum : (d.getMonth() >= 8 ? win : new Date(y - 1, 11, 21));
+    if (d.getMonth() < 3 && sol !== sum) sol = new Date(y - 1, 11, 21);
+    return new Date(2 * sol - d);
+  }
+  var SYN = 29.530588853, FULL0 = Date.UTC(2000, 0, 21, 4, 40);
+  function nextFull(now) { var k = Math.ceil((now - FULL0) / 864e5 / SYN - 0.1); return new Date(FULL0 + k * SYN * 864e5); }
+  // 返回 { date: Date|null, text: 一句话 }
+  function next(s, now) {
+    now = now || new Date();
+    var w = s.wonder || {}, f = w.freq || DEF[w.kind] || '', d = parse(s.photoMeta && s.photoMeta.time);
+    if (f === 'rare') return { date: null, text: '可遇不可求，没有固定日期' };
+    if (f === 'monthly') { var fm = nextFull(now); return { date: fm, text: '下一次满月 ' + ymd(fm, now) + ' 前后，还要看月亮方位是否对得上' }; }
+    if (!d) return { date: null, text: '作者没填拍摄日期，暂时推算不出下一次' };
+    if (f === 'yearly') {
+      var a = nextSameDay(d, now), b = w.kind === '悬日' ? nextSameDay(mirror(d), now) : null, n = b && b < a ? b : a;
+      return { date: n, text: '下一次约在 ' + ymd(n, now) + ' 前后' + (d.getHours() || d.getMinutes() ? '，' + hm(d) + ' 左右' : '') + (b ? '（悬日一年两次，另一次约 ' + md(n === a ? b : a) + '）' : '') };
+    }
+    if (f === 'season') { var s2 = nextSameDay(new Date(d.getFullYear(), d.getMonth(), 1), now); if (s2.getMonth() === now.getMonth() && s2.getFullYear() > now.getFullYear()) s2 = new Date(now.getFullYear(), now.getMonth(), 1); return { date: s2, text: '下一次：' + (s2.getFullYear() !== now.getFullYear() ? s2.getFullYear() + '年' : '') + (s2.getMonth() + 1) + '月前后（作者拍于 ' + d.getFullYear() + '年' + (d.getMonth() + 1) + '月）' }; }
+    if (f === 'weather') return { date: null, text: '看天气，没有固定日期' + (WEATHER[w.kind] ? '：等' + WEATHER[w.kind] : '') + '；作者拍于 ' + (d.getMonth() + 1) + '月' };
+    return { date: null, text: '' };
+  }
+  return { KINDS: KINDS, FREQS: FREQS, DEF: DEF, freqName: freqName, next: next, parse: parse };
+})();

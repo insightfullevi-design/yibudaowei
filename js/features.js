@@ -112,7 +112,7 @@
   function readDraft() { try { return JSON.parse(localStorage.getItem(draftKey()) || 'null'); } catch (e) { return null; } }
   var TAG_SUGGEST = ['影视同款', '明星同款', '书本同款', '钞能力同款', '城市地标', '创意机位', '限定奇观', '夜景', '日落', '免费', '需预约', '人少'];
   function openUpload() {
-    up = { photo: null, pos: null, heading: 0, headingSet: false, fov: 70, handles: [], steps: [{ text: '', photo: null }], posFrom: '', tags: [] };
+    up = { photo: null, pos: null, heading: 0, headingSet: false, fov: 70, handles: [], steps: [{ text: '', photo: null }], posFrom: '', tags: [], mTime: '', mF35: null, wKind: '', wFreq: '' };
     JW.clearSel();
     var d = readDraft();
     JW.openSheet(
@@ -121,7 +121,7 @@
       '<h3>1 · 照片</h3>' +
       '<p class="tip">请<b>直接从手机相册选原图</b>，会自动读出拍摄地点、时间、设备和相机参数。拍照前请确认相机设置里的“地理位置”已打开；经过微信、小红书转发的照片会丢失这些信息。</p>' +
       '<label class="upload-drop" id="upDrop"><input type="file" accept="image/*" id="upFile" hidden><span id="upDropText">＋ 从相册选择原图</span></label>' +
-      '<div id="upMeta"></div>' +
+      '<div id="upMeta"></div><div id="upManual"></div>' +
       '<h3>2 · 站位</h3><div id="upInfo"></div>' +
       '<div class="btn-row"><button class="btn-ghost" data-act="here">📍 用我现在的位置</button><button class="btn-ghost" data-act="pick">搜索 / 在地图上点选</button></div>' +
       '<div class="form">' + field('镜头朝向', '<input id="upHeading" type="range" min="0" max="359" value="0"><span id="upHeadingVal" class="muted">0°</span>') + '</div>' +
@@ -131,7 +131,7 @@
       field('标题（机位名称，必填）', '<input id="upName" maxlength="30" placeholder="例如：白玉兰桥下·颠倒世界">') +
       field('正文（选填）', '<textarea id="upBody" rows="5" placeholder="分享出片经验和机位细节：几点来光线最好、具体站在哪、用什么镜头和姿势、有没有门票或人流、要注意什么……"></textarea>') +
       '<label class="field"><span>标签（必填，至少选一个；会用来归类成专题）</span><div class="tag-ed" id="upTags"></div><input id="upTagIn" placeholder="输入标签，按回车添加"></label>' +
-      '<div class="tag-sug" id="upSug"></div></div>' +
+      '<div class="tag-sug" id="upSug"></div><div id="upWonder"></div></div>' +
       '<h3>4 · 路书（可选）：最后一段怎么走</h3><p class="tip">从最近的地铁口或路口开始，每个转弯拍一张照片、写一句话。定位不准的地方，就靠它把人带到位。</p>' +
       '<div id="upSteps"></div><button class="btn-ghost wide" data-act="addstep">＋ 再加一步</button>' +
       '<p class="muted">发布规则：只收录能合法进入的地点；不要用含他人正脸的照片做封面。</p>' +
@@ -142,7 +142,7 @@
     $('upHeading').addEventListener('input', function () { up.heading = +this.value; up.headingSet = true; $('upHeadingVal').textContent = up.heading + '°'; drawUp(true); });
     $('upTagIn').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ',' || e.key === '，') { e.preventDefault(); addTag(this.value); this.value = ''; } });
     $('upTagIn').addEventListener('blur', function () { if (this.value.trim()) { addTag(this.value); this.value = ''; } });
-    renderSteps(); renderTags(); info(); meta();
+    renderSteps(); renderTags(); info(); meta(); manual();
     JW.bindSheet(function (act) {
       if (act === 'pick') startPick();
       if (act === 'here') hereNow();
@@ -167,6 +167,46 @@
     box.querySelectorAll('[data-deltag]').forEach(function (b) { b.onclick = function (e) { e.preventDefault(); up.tags.splice(+b.getAttribute('data-deltag'), 1); renderTags(); }; });
     $('upSug').innerHTML = TAG_SUGGEST.filter(function (t) { return up.tags.indexOf(t) < 0; }).map(function (t) { return '<button data-sug="' + t + '">#' + t + '</button>'; }).join('');
     $('upSug').querySelectorAll('[data-sug]').forEach(function (b) { b.onclick = function (e) { e.preventDefault(); addTag(b.getAttribute('data-sug')); }; });
+    wonderFields();
+  }
+  function isWonderPost() { return up.tags.some(function (t) { return window.JW_TAGTOPIC(t) === 'wonder'; }); }
+  // 带 #限定奇观 的帖子多出两项：奇观类型、多久出现一次
+  function wonderFields() {
+    var box = $('upWonder'); if (!box) return;
+    if (!isWonderPost()) { box.innerHTML = ''; return; }
+    var W = window.JW_WONDER;
+    if (!up.wKind) { var hit = up.tags.join(' ').match(new RegExp(W.KINDS.slice(0, -1).join('|'))); if (hit) { up.wKind = hit[0]; up.wFreq = up.wFreq || W.DEF[hit[0]] || ''; } }
+    box.innerHTML = '<div class="wonder-ed"><b>限定奇观信息</b><p class="muted">填好后，专题里会按类型归类，还能推算“下一次在几月几号”。</p>' +
+      field('奇观类型（必填）', '<select id="upWKind"><option value="">请选择</option>' + W.KINDS.map(function (k) { return '<option' + (k === up.wKind ? ' selected' : '') + '>' + k + '</option>'; }).join('') + '</select>') +
+      field('多久出现一次', '<select id="upWFreq"><option value="">请选择</option>' + W.FREQS.map(function (f) { return '<option value="' + f[0] + '"' + (f[0] === up.wFreq ? ' selected' : '') + '>' + f[1] + '</option>'; }).join('') + '</select>') +
+      '<p class="muted" id="upWNext"></p></div>';
+    $('upWKind').onchange = function () { up.wKind = this.value; if (!up.wFreq || up.wFreqAuto) { up.wFreq = W.DEF[up.wKind] || ''; up.wFreqAuto = true; $('upWFreq').value = up.wFreq; } wonderNext(); };
+    $('upWFreq').onchange = function () { up.wFreq = this.value; up.wFreqAuto = false; wonderNext(); };
+    wonderNext(); manual();
+  }
+  function shotTime() { var e = up.exif || {}; return e.time || (up.mTime ? up.mTime.replace(/^(\d+)-(\d+)-(\d+)T(\d+:\d+).*/, '$1:$2:$3 $4:00') : ''); }
+  function wonderNext() {
+    var el = $('upWNext'); if (!el) return;
+    if (!up.wKind) { el.textContent = ''; return; }
+    var n = window.JW_WONDER.next({ wonder: { kind: up.wKind, freq: up.wFreq }, photoMeta: { time: shotTime() } });
+    el.innerHTML = n.text ? '预览：' + JW.esc(n.text) : '';
+  }
+  // 照片里读不到拍摄时间或焦段：让作者手填（奇观要靠日期和时间推算下一次）
+  var F35 = [[13, '超广角'], [24, '广角'], [26, '主摄'], [50, '人像'], [77, '3 倍'], [120, '5 倍'], [230, '长焦']];
+  function manual() {
+    var box = $('upManual'); if (!box) return;
+    var e = up.exif || {}, needT = up.photo && !e.time, needF = up.photo && !e.f35;
+    if (!needT && !needF) { box.innerHTML = ''; return; }
+    var w = isWonderPost();
+    box.innerHTML = '<div class="form manual"><p class="tip">照片里没读到' + [needT ? '拍摄时间' : '', needF ? '焦段' : ''].filter(Boolean).join('和') + '，可以自己补上' + (w && needT ? '。<b>限定奇观一定要填日期和时间</b>，才能推算下一次' : '（选填）') + '：</p>' +
+      (needT ? field('拍摄时间', '<input id="upTimeIn" type="datetime-local" value="' + JW.esc(up.mTime || '') + '">') : '') +
+      (needF ? field('等效焦段', '<div class="f35-row">' + F35.map(function (f) { return '<button data-f35="' + f[0] + '"' + (up.mF35 === f[0] ? ' class="on"' : '') + '>' + f[0] + 'mm<small>' + f[1] + '</small></button>'; }).join('') + '<input id="upF35In" type="number" min="8" max="800" inputmode="numeric" placeholder="其他 mm" value="' + (up.mF35 && !F35.some(function (f) { return f[0] === up.mF35; }) ? up.mF35 : '') + '"></div>') : '') + '</div>';
+    if (needT) $('upTimeIn').onchange = function () { up.mTime = this.value; info(); wonderNext(); };
+    if (needF) {
+      var setF = function (v) { up.mF35 = v > 0 ? Math.round(v) : null; up.fov = fovFrom(up.mF35); box.querySelectorAll('[data-f35]').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-f35') === up.mF35); }); info(); drawUp(true); };
+      box.querySelectorAll('[data-f35]').forEach(function (b) { b.onclick = function (ev) { ev.preventDefault(); $('upF35In').value = ''; setF(+b.getAttribute('data-f35')); }; });
+      $('upF35In').onchange = function () { setF(+this.value); };
+    }
   }
   // 照片信息：地点、时间、设备、相机参数
   function meta() {
@@ -317,7 +357,7 @@
   var FORM_IDS = ['upName', 'upBody'];
   function saveDraft() {
     collectSteps();
-    var d = { saved: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }), f: {}, photo: up.photo, pos: up.pos, posFrom: up.posFrom, heading: up.heading, headingSet: up.headingSet, fov: up.fov, exif: up.exif || {}, steps: up.steps, tags: up.tags };
+    var d = { saved: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }), f: {}, photo: up.photo, pos: up.pos, posFrom: up.posFrom, heading: up.heading, headingSet: up.headingSet, fov: up.fov, exif: up.exif || {}, steps: up.steps, tags: up.tags, mTime: up.mTime, mF35: up.mF35, wKind: up.wKind, wFreq: up.wFreq };
     FORM_IDS.forEach(function (id) { var el = $(id); if (el) d.f[id] = el.value; });
     try { localStorage.setItem(draftKey(), JSON.stringify(d)); JW.toast('草稿已存在这台手机上'); }
     catch (e) {
@@ -330,11 +370,11 @@
     openUpload();
     Object.keys(d.f || {}).forEach(function (id) { var el = $(id); if (el) el.value = d.f[id]; });
     up.photo = d.photo; up.pos = d.pos; up.posFrom = d.posFrom || ''; up.heading = d.heading || 0; up.headingSet = !!d.headingSet; up.fov = d.fov || 70; up.exif = d.exif || {};
-    up.steps = d.steps && d.steps.length ? d.steps : [{ text: '', photo: null }]; up.tags = d.tags || [];
+    up.steps = d.steps && d.steps.length ? d.steps : [{ text: '', photo: null }]; up.tags = d.tags || []; up.mTime = d.mTime || ''; up.mF35 = d.mF35 || null; up.wKind = d.wKind || ''; up.wFreq = d.wFreq || '';
     if (up.photo) $('upDrop').innerHTML = '<img src="' + up.photo + '" alt="成片">';
     $('upHeading').value = up.heading; $('upHeadingVal').textContent = up.heading + '°';
     var c = document.querySelector('#sheetBody .cond.wait'); if (c) c.remove();
-    renderSteps(); renderTags(); drawUp(); info(); meta(); JW.toast('已载入草稿');
+    renderSteps(); renderTags(); drawUp(); info(); meta(); manual(); JW.toast('已载入草稿');
   }
   function field(label, html) { return '<label class="field"><span>' + label + '</span>' + html + '</label>'; }
   function onPhoto(e) {
@@ -347,8 +387,8 @@
         $('upDrop').innerHTML = '<img src="' + small + '" alt="成片">';
         if (exif.lat) { up.pos = M.wgs2bd(exif.lng, exif.lat); up.posFrom = '照片里的拍摄位置'; }
         if (exif.heading != null) { up.headingSet = true; up.heading = Math.round(exif.heading) % 360; $('upHeading').value = up.heading; $('upHeadingVal').textContent = up.heading + '°'; }
-        up.fov = fovFrom(exif.f35);
-        drawUp(); info(); meta();
+        up.fov = fovFrom(exif.f35 || up.mF35);
+        drawUp(); info(); meta(); manual(); wonderNext();
         if (!exif.lat) JW.toast('这张照片没有记录拍摄地点，下面有打开相机位置记录的方法', 4000);
       }).catch(function () { JW.toast('这张照片读取失败，换一张试试'); });
   }
@@ -356,8 +396,9 @@
     var e = up.exif || {}, rows = [];
     rows.push(up.pos ? '站位：已确定（' + JW.esc(up.posFrom || '已定位') + '）' : '站位：还没确定。选原图会自动读取；也可以用你现在的位置，或在地图上点选');
     rows.push(!up.headingSet ? '朝向：还没设置（可以跳过，发布后显示“朝向待补充”）' : up.headingFrom ? '朝向：' + up.heading + '°（' + up.headingFrom + '）' : e.heading != null ? '朝向：' + Math.round(e.heading) + '°（来自照片）' : '朝向：照片里没有，用下面的指南针或地图点选补上');
-    rows.push(e.f35 ? '等效焦距 ' + e.f35 + 'mm → 视角约 ' + up.fov + '°' : '焦距：未读到，按主摄约 70° 估算');
-    if (e.time) rows.push('拍摄时间：' + e.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3'));
+    var f35 = e.f35 || up.mF35, t = shotTime();
+    rows.push(f35 ? '等效焦距 ' + f35 + 'mm' + (e.f35 ? '' : '（手填）') + ' → 视角约 ' + up.fov + '°' : '焦距：未读到，按主摄约 70° 估算');
+    if (t) rows.push('拍摄时间：' + t.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3').slice(0, 16) + (e.time ? '' : '（手填）'));
     $('upInfo').innerHTML = '<div class="cond ' + (up.pos ? 'ok' : 'wait') + '"><span class="dot"></span><div>' + rows.join('<br>') + '</div></div>';
   }
   function drawUp(noFly) {
@@ -377,13 +418,15 @@
     var body = $('upBody').value.trim(), e = up.exif || {};
     var pending = $('upTagIn').value.trim(); if (pending) { addTag(pending); $('upTagIn').value = ''; }
     if (!up.tags.length) { JW.toast('至少选一个标签，比如 #城市地标'); var sug = $('upSug'); if (sug) sug.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
-    var tags = up.tags.slice();
+    var wonderPost = isWonderPost();
+    if (wonderPost && !up.wKind) { JW.toast('选一下奇观类型，比如悬日、云海'); var wk = $('upWKind'); if (wk) wk.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+    var tags = up.tags.slice(), shot = shotTime(), f35 = e.f35 || up.mF35 || null;
     // 由标签推出玩法和专题，由拍摄时间推出光线条件（发帖时不用再选）
     var tj = tags.join(' ');
-    var type = /奇观|穿月|悬日|月亮/.test(tj) ? 'wonder' : /同款|影视|电影|剧|人民币|钞能力|课本|书本|地球online|动漫|圣地|明星/.test(tj) ? 'classic' : 'skill';
+    var type = wonderPost || /月亮/.test(tj) ? 'wonder' : /同款|影视|电影|剧|人民币|钞能力|课本|书本|地球online|动漫|圣地|明星/.test(tj) ? 'classic' : 'skill';
     var cols = tags.map(window.JW_TAGTOPIC).filter(function (k) { return k && k !== 'wonder'; });
     var col = cols[0];
-    var hr = e.time ? +e.time.slice(11, 13) : -1;
+    var hr = shot ? +shot.slice(11, 13) : -1;
     var light = /夜景|夜/.test(tj) ? 'night' : /日落|黄金/.test(tj) ? 'golden' : hr >= 19 || (hr >= 0 && hr < 5) ? 'night' : hr >= 16 ? 'golden' : hr >= 5 ? 'day' : 'any';
     var steps = up.steps.filter(function (st) { return st.text || st.photo; });
     var dev = [e.make && e.model && e.model.indexOf(e.make) < 0 ? e.make : '', e.model].filter(Boolean).join(' ');
@@ -391,8 +434,9 @@
       id: 'u' + Date.now(), mine: true, type: type, area: '网友发现', name: name, collection: col, topics: cols.slice(1),
       lng: up.pos[0], lat: up.pos[1], heading: up.headingSet ? up.heading : null, headingUnknown: !up.headingSet, fov: up.fov,
       cover: up.photo, coverHint: name, summary: body ? body.split('\n')[0].slice(0, 60) : tags.map(function (t) { return '#' + t; }).join(' '), post: body, tags: tags,
-      photoMeta: { place: up.addr || '', time: e.time || '', device: dev, lens: e.lens || '', focal: e.focal || null, f35: e.f35 || null, fnum: e.fnum || null, exposure: e.exposure || null, iso: e.iso || null },
-      technique: {}, light: light, lightNote: e.time ? '作者拍摄于 ' + e.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3') : '',
+      photoMeta: { place: up.addr || '', time: shot, timeManual: !e.time && !!shot, device: dev, lens: e.lens || '', focal: e.focal || null, f35: f35, f35Manual: !e.f35 && !!f35, fnum: e.fnum || null, exposure: e.exposure || null, iso: e.iso || null },
+      wonder: wonderPost ? { kind: up.wKind, freq: up.wFreq || window.JW_WONDER.DEF[up.wKind] || '' } : null,
+      technique: {}, light: light, lightNote: shot ? '作者拍摄于 ' + shot.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3').slice(0, 16) : '',
       access: { fee: '', booking: '', hours: '' },
       guide: steps.map(function (st) { return { text: st.text || '（见照片）', photo: st.photo || null }; }),
       crowd: '', status: { ok: true, date: today(), note: '刚刚发布' }, source: '网友发帖', scene: null

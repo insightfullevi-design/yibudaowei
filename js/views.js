@@ -169,10 +169,24 @@
     } else {
       var c = catBy(key);
       if (c.route) items = window.JW_DATA.routes.map(function (r) { return row({ id: 'r:' + r.id, name: r.name, sub: r.spotIds.length + ' 个机位 · ' + r.advice, art: JW.placeholder(r.spotIds.length + ' 个机位', 'route', false) }); });
-      else items = (c.wonder ? window.JW_DATA.wonders.map(function (w) { return row({ id: 'w:' + w.id, name: w.name, sub: w.desc, art: JW.placeholder(w.name, 'wonder', true) }); }) : []).concat(allSpots().filter(c.test).map(spotRow));
+      else if (c.wonder) items = wonderGroups();
+      else items = allSpots().filter(c.test).map(spotRow);
       v.innerHTML = listHead(c.name, c.desc || (catCount(c) + ' 个')) + '<div class="rows">' + (items.join('') || '<div class="empty"><b>这一类还没有机位</b><button class="btn-main" data-go="upload">＋ 上传第一个</button></div>') + '</div>';
     }
     v.scrollTop = 0; bind(v);
+  }
+  // 限定奇观专题：按奇观类型分组，每条显示“下一次”
+  function wonderGroups() {
+    var W = window.JW_WONDER, groups = {}, order = W.KINDS.concat(['未分类']);
+    function put(k, html, t) { (groups[k] = groups[k] || []).push({ html: html, t: t }); }
+    window.JW_DATA.wonders.forEach(function (w) { put('穿月', row({ id: 'w:' + w.id, name: w.name, sub: '每月满月前后 · 点开推算未来一年', art: JW.placeholder(w.name, 'wonder', true) }), 0); });
+    allSpots().filter(function (s) { return s.type === 'wonder'; }).forEach(function (s) {
+      var k = s.wonder && s.wonder.kind || '未分类', n = s.wonder ? W.next(s) : { text: '', date: null };
+      put(order.indexOf(k) >= 0 ? k : '其他', row({ id: s.id, name: s.name, sub: n.text || (s.area || ''), art: coverHtml(s) }), n.date ? +n.date : 9e15);
+    });
+    return order.filter(function (k) { return groups[k]; }).map(function (k) {
+      return '<h3 class="l-grp">' + esc(k) + '<em>' + groups[k].length + '</em></h3>' + groups[k].sort(function (a, b) { return a.t - b.t; }).map(function (x) { return x.html; }).join('');
+    });
   }
   function search(q) { q = String(q || '').trim(); if (!q) return JW.toast('输入想找的机位、地标或剧名'); openList('search', q); }
 

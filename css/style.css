@@ -799,3 +799,21 @@ body.picking #pickBar { display: grid; gap: 8px; align-items: stretch; padding: 
 .gps-help p { margin: 2px 0; }
 .gps-help ul { margin: 4px 0; padding-left: 18px; }
 .gps-help li b { font-weight: 600; }
+
+/* 手填拍摄时间 / 焦段 */
+#upManual .manual{margin-top:10px}
+.f35-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.f35-row button{border:1px solid #e3e3e3;background:#fff;border-radius:999px;padding:6px 10px;font:600 13px/1.1 inherit;color:#0f0f0f;display:flex;flex-direction:column;align-items:center;cursor:pointer}
+.f35-row button small{font-size:10px;color:#888;font-weight:500;margin-top:2px}
+.f35-row button.on{background:#d7f36b;border-color:#0f0f0f}
+.f35-row input{width:92px;flex:0 0 auto}
+/* 限定奇观 */
+.wonder-ed{margin-top:12px;padding:12px;border-radius:14px;background:#f3f1ff;border:1px solid #dcd7ff}
+.wonder-ed>b{color:#4b3fb5}
+.wonder-ed select{width:100%;padding:10px;border-radius:10px;border:1px solid #d9d9d9;font:inherit;background:#fff}
+.wonder-info{margin:10px 0;padding:10px 12px;border-radius:14px;background:#f3f1ff;display:grid;gap:6px}
+.wonder-info div{display:flex;gap:10px;font-size:14px}
+.wonder-info span{flex:0 0 64px;color:#6a5acd}
+.wonder-info .wi-next b{color:#2d2466}
+.l-grp{margin:14px 4px 6px;font-size:15px;display:flex;align-items:center;gap:8px}
+.l-grp em{font-style:normal;font-size:12px;color:#fff;background:#6a5acd;border-radius:999px;padding:1px 8px}

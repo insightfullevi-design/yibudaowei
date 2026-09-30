@@ -300,7 +300,7 @@
       '<div class="cover">' + coverHtml(s) + '</div>' +
       (s.post ? '<div class="post">' + esc(s.post).replace(/\n/g, '<br>') + '</div>' : '<p>' + esc(s.summary) + '</p>') +
       (s.tags && s.tags.length ? '<div class="post-tags">' + s.tags.map(function (t) { return '<span>#' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
-      photoMetaHtml(s) + sceneHtml(s) +
+      wonderHtml(s) + photoMetaHtml(s) + sceneHtml(s) +
       '<div class="cond ' + lc.cls + '"><span class="dot"></span><div>' + esc(lc.text) + (s.lightNote ? '<br><span class="muted">' + esc(s.lightNote) + '</span>' : '') + '</div></div>' +
       '<div class="btn-row">' +
         '<button class="btn-ghost" data-act="copy">预览拍法</button><button class="btn-ghost" data-act="share">分享</button>' +
@@ -330,10 +330,17 @@
     });
   }
   // 作者照片里的拍摄信息：时间、设备、相机参数
+  // 限定奇观：类型、多久出现一次、下一次
+  function wonderHtml(s) {
+    if (!s.wonder || !s.wonder.kind || !window.JW_WONDER) return '';
+    var W = window.JW_WONDER, n = W.next(s);
+    return '<div class="wonder-info"><div><span>奇观类型</span><b>' + esc(s.wonder.kind) + '</b></div>' + (s.wonder.freq ? '<div><span>多久一次</span><b>' + esc(W.freqName(s.wonder.freq)) + '</b></div>' : '') +
+      (n.text ? '<div class="wi-next"><span>下一次</span><b>' + esc(n.text.replace(/^下一次(约在|：)?\s*/, '')) + '</b></div>' : '') + '</div>';
+  }
   function photoMetaHtml(s) {
     var m = s.photoMeta; if (!m) return '';
-    var cam = [m.focal ? Math.round(m.focal * 10) / 10 + 'mm' : '', m.f35 ? '等效 ' + m.f35 + 'mm' : '', m.fnum ? 'f/' + Math.round(m.fnum * 10) / 10 : '', m.exposure ? (m.exposure >= 0.3 ? (+m.exposure).toFixed(1) + 's' : '1/' + Math.round(1 / m.exposure) + 's') : '', m.iso ? 'ISO ' + m.iso : ''].filter(Boolean).join(' · ');
-    var rows = [['拍摄地点', m.place], ['拍摄时间', m.time ? m.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3') : ''], ['拍摄设备', m.device], ['相机参数', cam], ['镜头', m.lens]].filter(function (r) { return r[1]; });
+    var cam = [m.focal ? Math.round(m.focal * 10) / 10 + 'mm' : '', m.f35 ? '等效 ' + m.f35 + 'mm' + (m.f35Manual ? '（手填）' : '') : '', m.fnum ? 'f/' + Math.round(m.fnum * 10) / 10 : '', m.exposure ? (m.exposure >= 0.3 ? (+m.exposure).toFixed(1) + 's' : '1/' + Math.round(1 / m.exposure) + 's') : '', m.iso ? 'ISO ' + m.iso : ''].filter(Boolean).join(' · ');
+    var rows = [['拍摄地点', m.place], ['拍摄时间', m.time ? m.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3').slice(0, m.timeManual ? 16 : 19) + (m.timeManual ? '（作者手填）' : '') : ''], ['拍摄设备', m.device], ['相机参数', cam], ['镜头', m.lens]].filter(function (r) { return r[1]; });
     return rows.length ? '<div class="meta-card">' + rows.map(function (r) { return '<div><span>' + r[0] + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') + '</div>' : '';
   }
   // 名场面信息：来源作品、场景、台词、剧中地点 vs 实际拍摄地
