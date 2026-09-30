@@ -401,6 +401,9 @@
         arrival.routePlanned = true; arrival.distanceMeters = M.distance(from, [s.lng, s.lat]); renderArrivalPrimary(s);
         NAV = { s: s, live: live, from: from, r: r, step: 0, watch: null, arrived: false };
         setUserMarker(from);
+        // 把起点和机位都放进画面，并给底部导航条留出位置
+        var dd = M.distance(from, [s.lng, s.lat]), z = dd < 300 ? 17 : dd < 800 ? 16 : dd < 2000 ? 15 : 14;
+        if (map.center) setTimeout(function () { map.center((from[0] + s.lng) / 2, (from[1] + s.lat) / 2 - dd / 110540 * 0.35, z); }, 300);
         $('sheet').classList.add('lowered'); document.body.classList.add('navigating');
         renderNav(M.distance(from, [s.lng, s.lat]));
         if (live && navigator.geolocation) {

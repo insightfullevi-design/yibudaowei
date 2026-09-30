@@ -6,7 +6,7 @@ window.JW_CONFIG = {
 
   // 作品名和一句话，定下来后改这里即可
   BRAND: '移步到位',
-  SLOGAN: '导航到最美的拍照机位',
+  SLOGAN: '导航到最美的拍照机位，跟着走，包出片！',
 
   // 云端数据库（Supabase）：网址和公开密钥（公开密钥本来就会出现在网页里，可以放心写在这里）
   SUPABASE_URL: 'https://aceuwtcthzawmumbohfd.supabase.co',
