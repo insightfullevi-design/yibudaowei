@@ -67,7 +67,7 @@
     this._walk = null;
     this._view = [];
     var self = this, raf = 0;
-    function fire() { if (raf) return; raf = requestAnimationFrame(function () { raf = 0; self._view.forEach(function (f) { f(); }); }); }
+    function fire() { if (raf) return; raf = setTimeout(function () { raf = 0; self._view.forEach(function (f) { f(); }); }, 16); }
     ['moving', 'moveend', 'zooming', 'zoomend', 'resize', 'dragging', 'dragend', 'update'].forEach(function (ev) { try { map.addEventListener(ev, fire); } catch (e) {} });
     window.addEventListener('resize', fire);
   }

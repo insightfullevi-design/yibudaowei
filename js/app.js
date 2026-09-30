@@ -150,7 +150,7 @@
 
   // ---------------- 地图上的机位标签：照片 + 名称，引线连到机位点 ----------------
   var labelsRaf = 0;
-  function labelsSoon() { if (labelsRaf) return; labelsRaf = requestAnimationFrame(function () { labelsRaf = 0; renderLabels(); }); }
+  function labelsSoon() { if (labelsRaf) return; labelsRaf = setTimeout(function () { labelsRaf = 0; renderLabels(); }, 16); }
   function labelThumb(s) { return s.cover ? '<img src="' + esc(s.cover) + '" alt="">' : placeholder(s.coverHint || s.name, s.type, false); }
   function renderLabels() {
     var layer = $('mapLabels'); if (!layer || !map || !map.toPixel) return;
