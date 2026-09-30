@@ -90,7 +90,7 @@
       if (filter !== 'all' && filter !== 'wonder') return;
       markers[w.id] = map.addMarker(w.target.lng, w.target.lat, markerSvg('wonder'), 34, function () { openWonder(w.id); });
     });
-    renderSpotRail();
+    renderSpotRail(); labelsSoon();
   }
   function visible(s) {
     if (filter === 'all') return true;
@@ -134,17 +134,59 @@
     });
   }
 
-  function locateOnMap() {
-    var button = $('btnLocateMap');
-    button.disabled = true; button.classList.add('loading');
+  // 定位：取位置 → 地图上放蓝点 →（需要时）飞过去；首页“重新定位”和进地图时都用它
+  function locateMe(opts, cb) {
+    opts = opts || {};
     map.locate(function (p) {
-      button.disabled = false; button.classList.remove('loading');
-      if (!p) { toast('暂时无法获取位置，请检查定位权限'); return; }
+      if (!p) { if (!opts.quiet) toast('暂时无法获取位置，请检查定位权限'); return cb && cb(null); }
       if (userMarker) map.remove(userMarker);
       userMarker = map.addMarker(p[0], p[1], '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="#3b6fb6" fill-opacity=".22"/><circle cx="16" cy="16" r="7" fill="#3b6fb6" stroke="#fff" stroke-width="3"/></svg>', 32, null);
-      map.flyTo(p[0], p[1], 17); toast('已回到你的位置');
+      if (opts.fly !== false) map.flyTo(p[0], p[1], opts.zoom || 16);
+      if (!opts.quiet) toast('已定位到你的位置');
+      if (cb) cb(p);
     });
   }
+  function locateOnMap() { locateMe({}); }
+
+  // ---------------- 地图上的机位标签：照片 + 名称，引线连到机位点 ----------------
+  var labelsRaf = 0;
+  function labelsSoon() { if (labelsRaf) return; labelsRaf = requestAnimationFrame(function () { labelsRaf = 0; renderLabels(); }); }
+  function labelThumb(s) { return s.cover ? '<img src="' + esc(s.cover) + '" alt="">' : placeholder(s.coverHint || s.name, s.type, false); }
+  function renderLabels() {
+    var layer = $('mapLabels'); if (!layer || !map || !map.toPixel) return;
+    if (!document.body.classList.contains('on-map')) { layer.innerHTML = ''; return; }
+    var W = window.innerWidth, H = window.innerHeight, mobile = W < 900;
+    var top = mobile ? 108 : 118, bottom = H - (mobile ? 190 : 110), right = mobile ? W : W - 430;
+    var LW = 148, LH = 46, placed = [], html = '', lines = '';
+    // 已经被占的区域：机位点本身
+    var pts = DATA.spots.filter(visible).map(function (s) { var p = map.toPixel(s.lng, s.lat); return { s: s, x: p[0], y: p[1] }; })
+      .filter(function (o) { return o.x > -20 && o.x < right + 20 && o.y > top - 20 && o.y < bottom + 20; });
+    pts.forEach(function (o) { placed.push([o.x - 12, o.y - 12, o.x + 12, o.y + 12]); });
+    // 有照片的、用户上传的优先
+    pts.sort(function (a, b) { return (b.s.cover ? 2 : 0) + (b.s.rowId ? 1 : 0) - (a.s.cover ? 2 : 0) - (a.s.rowId ? 1 : 0); });
+    var OFF = [[-LW - 26, -LH - 22], [26, -LH - 22], [-LW - 26, 22], [26, 22], [-LW / 2, -LH - 40], [-LW / 2, 40], [-LW - 40, -LH / 2], [40, -LH / 2]];
+    function free(r) {
+      if (r[0] < 6 || r[2] > right - 6 || r[1] < top || r[3] > bottom) return false;
+      return !placed.some(function (q) { return r[0] < q[2] + 4 && r[2] > q[0] - 4 && r[1] < q[3] + 4 && r[3] > q[1] - 4; });
+    }
+    var n = 0;
+    pts.forEach(function (o) {
+      if (n >= 16) return;
+      for (var i = 0; i < OFF.length; i++) {
+        var x = o.x + OFF[i][0], y = o.y + OFF[i][1], r = [x, y, x + LW, y + LH];
+        if (!free(r)) continue;
+        placed.push(r); n++;
+        var ax = Math.max(x, Math.min(o.x, x + LW)), ay = o.y < y ? y : o.y > y + LH ? y + LH : y + LH / 2;
+        var col = COLORS[o.s.type] || '#c8553d';
+        lines += '<line x1="' + o.x.toFixed(1) + '" y1="' + o.y.toFixed(1) + '" x2="' + ax.toFixed(1) + '" y2="' + ay.toFixed(1) + '" stroke="' + col + '" stroke-width="1.5"/>';
+        html += '<button class="mlabel" data-spot="' + esc(o.s.id) + '" style="left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px;--c:' + col + '"><span class="ml-img">' + labelThumb(o.s) + '</span><b>' + esc(o.s.name) + '</b></button>';
+        break;
+      }
+    });
+    layer.innerHTML = '<svg class="ml-lines" width="' + W + '" height="' + H + '">' + lines + '</svg>' + html;
+    layer.querySelectorAll('[data-spot]').forEach(function (b) { b.addEventListener('click', function () { openSpot(b.getAttribute('data-spot')); }); });
+  }
+
   // 取景框在大地上的投影：从站位出发、沿朝向张开的扇形
   function drawView(s, radius) {
     if (s.heading == null) {
@@ -588,6 +630,7 @@
     if (CFG.BRAND) { document.querySelector('.brand-name').textContent = CFG.BRAND; document.title = CFG.BRAND + ' · ' + (CFG.SLOGAN || ''); }
     var bs = document.querySelector('.brand-sub'); if (CFG.SLOGAN && bs) bs.textContent = CFG.SLOGAN;
     map = M.create($('map'), CFG.CENTER, CFG.ZOOM, useBaidu);
+    if (map.onView) map.onView(labelsSoon);
     $('statusPill').textContent = useBaidu ? '百度地图已连接' : '离线预览 · ' + (reason || '');
     drawMarkers();
     document.querySelectorAll('#chips button').forEach(function (b) { b.addEventListener('click', function () { onChip(b.getAttribute('data-f')); }); });
@@ -612,5 +655,6 @@
   function addSpot(s) { if (!spotById[s.id]) DATA.spots.push(s); spotById[s.id] = s; }
   window.JW = { get map() { return map; }, spotById: spotById, addSpot: addSpot, drawMarkers: drawMarkers, openSheet: openSheet, closeSheet: closeSheet,
     bindSheet: bindSheet, toast: toast, esc: esc, placeholder: placeholder, lightCheck: lightCheck, setFilter: setFilter, COLORS: COLORS, TYPE_NAME: TYPE_NAME,
-    clearSel: clearSel, sel: function (h) { sel.push(h); }, markerSvg: markerSvg, hm: hm, md: md, planRoute: planRoute, predictWonder: predictWonder, lightCheck: lightCheck, openSpot: openSpot, openRoute: openRoute, openWonder: openWonder, DEMOS: DEMOS };
+    clearSel: clearSel, sel: function (h) { sel.push(h); }, markerSvg: markerSvg, hm: hm, md: md, planRoute: planRoute, predictWonder: predictWonder, lightCheck: lightCheck, openSpot: openSpot, openRoute: openRoute, openWonder: openWonder, DEMOS: DEMOS,
+    locateMe: function (o, cb) { locateMe(o, cb); }, renderLabels: labelsSoon };
 })();

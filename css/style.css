@@ -644,3 +644,20 @@ body.guiding .near { display: none; }
 #mapSpotRail { display: none !important; }
 body.sheet-open .near { display: none; }
 body:not(.on-map) .map-search, body:not(.on-map) .map-locate { display: none; }
+
+/* 地图上的机位标签：照片 + 名称，引线连到机位点（参考美食地图样式） */
+.map-labels { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+body:not(.on-map) .map-labels, body.sheet-open .map-labels, body.guiding .map-labels { display: none; }
+.ml-lines { position: absolute; left: 0; top: 0; overflow: visible; }
+.mlabel { position: absolute; width: 148px; height: 46px; display: flex; align-items: center; gap: 7px; padding: 4px 8px 4px 4px; border: 1.5px solid var(--c); border-radius: 12px; background: rgba(255,253,248,.97); box-shadow: 0 3px 10px rgba(42,37,33,.16); pointer-events: auto; text-align: left; cursor: pointer; }
+.ml-img { width: 36px; height: 36px; border-radius: 8px; overflow: hidden; flex: none; background: var(--line); }
+.ml-img img, .ml-img svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mlabel b { font-size: 13px; line-height: 1.3; color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* 搜索框：去掉旁边的定位圆圈，搜索框占满一行、字放大；定位统一用“我身边”里的“重新定位” */
+.map-locate { display: none !important; }
+.map-search { width: auto; right: 16px; height: 48px; }
+.map-search input { font-size: 16px; }
+.map-search > span { font-size: 24px; }
+.tp-more.one { grid-template-columns: 1fr; }
+.near-h .link { font-size: 14px; font-weight: 700; color: #3b6fb6; text-decoration: none; }
+@media (min-width: 900px) { .map-search { right: 440px; } }

@@ -61,11 +61,15 @@
   }
   function renderNear() {
     var box = $('near'); if (!box) return;
+    if (JW.renderLabels) JW.renderLabels();
     if (!locTried) {
       locTried = true;
       box.innerHTML = '<div class="near-h"><b>我身边</b><span>正在获取你的位置…</span></div>';
-      locate(function (p, fb) {
-        locFail = fb; if (!fb) { lastPos = p; if (JW.map && nearbyNow(p, 1)[0].d < 20000) JW.map.flyTo(p[0], p[1], 14); }
+      var done = false, t = setTimeout(function () { if (!done) { done = true; locFail = true; renderNear(); } }, 9000);
+      // 进地图就定位：放蓝点；附近 20 公里内有机位才把地图挪过去
+      JW.locateMe({ quiet: true, fly: false }, function (p) {
+        if (done) return; done = true; clearTimeout(t);
+        locFail = !p; if (p) { lastPos = p; if (nearbyNow(p, 1)[0].d < 20000) JW.map.flyTo(p[0], p[1], 15); }
         renderNear();
       });
       return;
@@ -80,7 +84,11 @@
           '<span><em class="badge ' + x.cls + '">' + BADGE[x.cls] + '</em>' + km(x.d) + '</span></div><div class="nc-star" data-rxstar="' + esc(x.s.id) + '">' + S.star(x.s.id) + '</div></div>';
       }).join('') + '</div>';
     box.querySelectorAll('[data-spot]').forEach(function (c) { c.onclick = function () { JW.openSpot(c.getAttribute('data-spot')); }; });
-    box.querySelectorAll('[data-near]').forEach(function (b) { b.onclick = function () { if (b.getAttribute('data-near') === 'upload') return go('upload'); locTried = false; renderNear(); }; });
+    box.querySelectorAll('[data-near]').forEach(function (b) { b.onclick = function () {
+      if (b.getAttribute('data-near') === 'upload') return go('upload');
+      b.textContent = '定位中…';
+      JW.locateMe({ zoom: 15 }, function (p) { locFail = !p; if (p) lastPos = p; renderNear(); });
+    }; });
   }
 
   // ---------------- 首页：标志 + 名字 + 口号、搜索、大图（去拍同款、点赞、收藏） ----------------
@@ -123,8 +131,7 @@
         var i = topicInfo(t.key);
         return '<button class="tp-card" data-cat="' + t.key + '" style="--c:' + t.color + '">' + topicArt(t.key, t.color) + '<div class="tp-txt"><em>' + catCount(catBy(t.key)) + ' 个机位</em><b>' + esc(i.name) + '</b><span>' + esc(i.desc) + '</span></div></button>';
       }).join('') + '</div>' +
-      '<div class="tp-more"><button data-cat="route"><b>机位路线</b><span>' + window.JW_DATA.routes.length + ' 条 · 按光线和地形排好顺序</span><i>›</i></button>' +
-      '<button data-cat="wonder"><b>等奇观</b><span>环金穿月 · 一年只有几次</span><i>›</i></button></div></div>';
+      '<div class="tp-more one"><button data-cat="wonder"><b>等奇观</b><span>环金穿月 · 一年只有几次</span><i>›</i></button></div></div>';
     bind($('vTopic'));
   }
 
@@ -144,7 +151,7 @@
         var col = s.collection && window.JW_DATA.collections[s.collection] ? window.JW_DATA.collections[s.collection].name : '';
         return [s.name, s.area, s.summary, col, JW.TYPE_NAME[s.type], s.scene && s.scene.work, s.scene && s.scene.realPlace, s.author && s.author.name].join(' ').toLowerCase().indexOf(q) >= 0;
       });
-      var rts = window.JW_DATA.routes.filter(function (r) { return r.name.toLowerCase().indexOf(q) >= 0; });
+      var rts = []; // 路线入口暂时下线：以后按临近点位或同主题自动生成路线，数据和编排逻辑都保留着
       items = rts.map(function (r) { return row({ id: 'r:' + r.id, name: r.name, sub: r.spotIds.length + ' 个机位 · 路线', art: JW.placeholder(r.spotIds.length + ' 个机位', 'route', false) }); }).concat(hit.map(spotRow));
       sub = items.length ? '找到 ' + items.length + ' 个' : '';
       v.innerHTML = listHead(title, sub) + '<div class="rows">' + (items.join('') || '<div class="empty"><b>还没有相关机位</b><p>换个关键词试试，或者把你知道的好角度传上来。</p><button class="btn-main" data-go="upload">＋ 上传机位</button></div>') + '</div>';

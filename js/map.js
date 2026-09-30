@@ -65,7 +65,15 @@
     try { map.setMapStyleV2({ styleJson: FILM_STYLE }); } catch (e) { /* 样式失败不影响使用 */ }
     this.map = map;
     this._walk = null;
+    this._view = [];
+    var self = this, raf = 0;
+    function fire() { if (raf) return; raf = requestAnimationFrame(function () { raf = 0; self._view.forEach(function (f) { f(); }); }); }
+    ['moving', 'moveend', 'zooming', 'zoomend', 'resize', 'dragging', 'dragend', 'update'].forEach(function (ev) { try { map.addEventListener(ev, fire); } catch (e) {} });
+    window.addEventListener('resize', fire);
   }
+  // 经纬度 → 地图容器里的像素位置（给机位照片标签定位用）
+  Baidu.prototype.toPixel = function (lng, lat) { var px = this.map.pointToPixel(new BMapGL.Point(lng, lat)); return [px.x, px.y]; };
+  Baidu.prototype.onView = function (f) { this._view.push(f); };
   function P(p) { return new BMapGL.Point(p[0], p[1]); }
   Baidu.prototype.addMarker = function (lng, lat, svg, size, onClick) {
     var icon = new BMapGL.Icon('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg),
@@ -170,7 +178,10 @@
       }
     });
     this.svg.innerHTML = svg;
+    (this._view || []).forEach(function (f) { f(); });
   };
+  Offline.prototype.toPixel = function (lng, lat) { return this.px(lng, lat); };
+  Offline.prototype.onView = function (f) { (this._view = this._view || []).push(f); };
   Offline.prototype.addMarker = function (lng, lat, svgStr, size, onClick) {
     var n = document.createElement('div'); n.className = 'om-mk'; n.innerHTML = svgStr;
     n.style.width = n.style.height = size + 'px';
