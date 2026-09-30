@@ -295,7 +295,7 @@
     openSheet(
       '<span class="tag ' + s.type + '">' + TYPE_NAME[s.type] + '</span>' + (s.marker ? '<span class="tag soft">' + esc(s.marker) + '</span>' : '') +
       (s.collection ? '<span class="tag soft">' + esc(DATA.collections[s.collection].name) + '</span>' : '') +
-      '<h2>' + esc(s.name) + '</h2><div class="muted">' + esc(s.area) + (s.heading != null ? ' · 镜头朝向 ' + Math.round(s.heading) + '°' : ' · 镜头朝天') + '</div>' +
+      '<h2>' + esc(s.name) + '</h2><div class="muted">' + esc(s.area) + (s.heading != null ? ' · 镜头朝向 ' + Math.round(s.heading) + '°' : s.headingUnknown ? ' · 朝向待补充' : ' · 镜头朝天') + '</div>' +
       '<div class="rx-row" data-rxbox="' + esc(s.id) + '">' + (window.Social ? window.Social.buttons(s.id) : '') + '</div>' +
       '<div class="cover">' + coverHtml(s) + '</div>' +
       (s.post ? '<div class="post">' + esc(s.post).replace(/\n/g, '<br>') + '</div>' : '<p>' + esc(s.summary) + '</p>') +
@@ -473,7 +473,7 @@
       var t = s.technique || {};
       $('guideStage').innerHTML =
         '<div class="compass" id="compass"><div class="ring"></div><div class="target" id="cTarget"></div><div class="me"></div><div class="deg" id="cDeg">' + (s.heading == null ? '朝天' : Math.round(s.heading) + '°') + '</div></div>' +
-        '<div class="guide-text" id="cTip">' + (s.heading == null ? '镜头朝天，' + esc(t.facing || '') : '把手机转向 ' + Math.round(s.heading) + '°（' + dirName(s.heading) + '）') + '</div>' +
+        '<div class="guide-text" id="cTip">' + (s.heading == null ? (s.headingUnknown ? '作者没有标注朝向，对照参考画面找角度' : '镜头朝天，' + esc(t.facing || '')) : '把手机转向 ' + Math.round(s.heading) + '°（' + dirName(s.heading) + '）') + '</div>' +
         '<div class="guide-sub">' + [t.pose, t.lens, t.post ? '后期：' + t.post : '', t.prop ? '道具：' + t.prop : ''].filter(Boolean).map(esc).join(' · ') +
         '<br><br><button class="btn-ghost dark" id="guideCam" style="margin-top:12px">打开相机，叠加参考画面对齐</button></div>';
       $('guideNext').textContent = '完成，去打卡';

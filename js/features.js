@@ -112,7 +112,7 @@
   function readDraft() { try { return JSON.parse(localStorage.getItem(draftKey()) || 'null'); } catch (e) { return null; } }
   var TAG_SUGGEST = ['影视同款', '明星同款', '书本同款', '钞能力同款', '城市地标', '创意机位', '限定奇观', '夜景', '日落', '免费', '需预约', '人少'];
   function openUpload() {
-    up = { photo: null, pos: null, heading: 0, fov: 70, handles: [], steps: [{ text: '', photo: null }], posFrom: '', tags: [] };
+    up = { photo: null, pos: null, heading: 0, headingSet: false, fov: 70, handles: [], steps: [{ text: '', photo: null }], posFrom: '', tags: [] };
     JW.clearSel();
     var d = readDraft();
     JW.openSheet(
@@ -139,7 +139,7 @@
     );
     document.getElementById('sheet').classList.add('tall');
     $('upFile').addEventListener('change', onPhoto);
-    $('upHeading').addEventListener('input', function () { up.heading = +this.value; $('upHeadingVal').textContent = up.heading + '°'; drawUp(true); });
+    $('upHeading').addEventListener('input', function () { up.heading = +this.value; up.headingSet = true; $('upHeadingVal').textContent = up.heading + '°'; drawUp(true); });
     $('upTagIn').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ',' || e.key === '，') { e.preventDefault(); addTag(this.value); this.value = ''; } });
     $('upTagIn').addEventListener('blur', function () { if (this.value.trim()) { addTag(this.value); this.value = ''; } });
     renderSteps(); renderTags(); info(); meta();
@@ -195,14 +195,14 @@
   // 在地图上定站位和朝向：两步走。第 1 步“站在哪”（可以搜地点），第 2 步“朝哪拍”（搜你拍的对象，或点地图上它的位置）
   var picking = null;
   function startPick(step) {
-    picking = { before: up.pos, beforeFrom: up.posFrom, beforeHeading: up.heading, beforeHF: up.headingFrom, step: step || 1 };
+    picking = { before: up.pos, beforeFrom: up.posFrom, beforeHeading: up.heading, beforeHF: up.headingFrom, beforeSet: up.headingSet, step: step || 1 };
     document.getElementById('sheet').classList.add('lowered'); document.body.classList.add('picking');
     renderPickBar();
     (function arm() {
       JW.map.pick(function (p) {
         if (!picking) return;
         if (picking.step === 1) { up.pos = p; up.posFrom = '地图点选'; drawUp(true); }
-        else if (up.pos) { up.heading = Math.round(M.bearing(up.pos, p)); up.headingFrom = '地图点选'; drawUp(true); }
+        else if (up.pos) { up.heading = Math.round(M.bearing(up.pos, p)); up.headingFrom = '地图点选'; up.headingSet = true; drawUp(true); }
         renderPickBar(); arm();
       });
     })();
@@ -218,8 +218,8 @@
         (st === 1 ? (up.pos ? '已放好，可以再点别处改' : '也可以先搜地点，地图会跳过去') : '镜头朝向 ' + up.heading + '°' + (up.headingFrom ? '（' + up.headingFrom + '）' : '') + '，地图上的扇形就是取景方向') + '</span></div>' +
       '<button class="pick-x" id="pickCancel">' + (st === 1 ? '取消' : '跳过') + '</button><button class="pick-ok" id="pickOk" aria-label="下一步"' + (ok ? '' : ' disabled') + '>✓</button></div>';
     $('pickCancel').onclick = function () {
-      if (st === 1) { up.pos = picking.before; up.posFrom = picking.beforeFrom; up.heading = picking.beforeHeading; up.headingFrom = picking.beforeHF; endPick(); }
-      else { endPick(); JW.toast('站位已锁定，朝向可以之后再调'); }
+      if (st === 1) { up.pos = picking.before; up.posFrom = picking.beforeFrom; up.heading = picking.beforeHeading; up.headingFrom = picking.beforeHF; up.headingSet = picking.beforeSet; endPick(); }
+      else { endPick(); JW.toast(up.headingSet ? '站位已锁定' : '站位已锁定；朝向先空着，发布后显示“朝向待补充”'); }
     };
     $('pickOk').onclick = function () {
       if (st === 1) { if (!up.pos) return JW.toast('先在地图上点一下'); picking.step = 2; JW.map.flyTo(up.pos[0], up.pos[1], 17); renderPickBar(); JW.toast('站位已锁定，再告诉我镜头朝哪'); }
@@ -241,7 +241,7 @@
             renderPickBar(); JW.toast('已跳到“' + r.title + '”，点地图把点挪到你站的位置');
           } else if (up.pos) {
             // 朝向 = 站位指向搜到的对象；对象再远（比如隔江的东方明珠）也能算准
-            up.heading = Math.round(M.bearing(up.pos, r.p)); up.headingFrom = '对准“' + r.title + '”'; drawUp(true);
+            up.heading = Math.round(M.bearing(up.pos, r.p)); up.headingFrom = '对准“' + r.title + '”'; up.headingSet = true; drawUp(true);
             renderPickBar(); JW.toast('镜头朝向 ' + up.heading + '°，对准' + r.title);
           }
         }; });
@@ -256,7 +256,7 @@
   }
   // 朝向：用手机指南针（站在拍照的位置，把手机背面对准要拍的方向）
   function setHeading(h, from) {
-    up.heading = Math.round((h % 360 + 360) % 360); up.headingFrom = from; $('upHeading').value = up.heading; $('upHeadingVal').textContent = up.heading + '°（' + from + '）';
+    up.heading = Math.round((h % 360 + 360) % 360); up.headingFrom = from; up.headingSet = true; $('upHeading').value = up.heading; $('upHeadingVal').textContent = up.heading + '°（' + from + '）';
     drawUp(true); info();
   }
   function compassHeading() {
@@ -317,7 +317,7 @@
   var FORM_IDS = ['upName', 'upBody'];
   function saveDraft() {
     collectSteps();
-    var d = { saved: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }), f: {}, photo: up.photo, pos: up.pos, posFrom: up.posFrom, heading: up.heading, fov: up.fov, exif: up.exif || {}, steps: up.steps, tags: up.tags };
+    var d = { saved: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }), f: {}, photo: up.photo, pos: up.pos, posFrom: up.posFrom, heading: up.heading, headingSet: up.headingSet, fov: up.fov, exif: up.exif || {}, steps: up.steps, tags: up.tags };
     FORM_IDS.forEach(function (id) { var el = $(id); if (el) d.f[id] = el.value; });
     try { localStorage.setItem(draftKey(), JSON.stringify(d)); JW.toast('草稿已存在这台手机上'); }
     catch (e) {
@@ -329,7 +329,7 @@
     var d = readDraft(); if (!d) return;
     openUpload();
     Object.keys(d.f || {}).forEach(function (id) { var el = $(id); if (el) el.value = d.f[id]; });
-    up.photo = d.photo; up.pos = d.pos; up.posFrom = d.posFrom || ''; up.heading = d.heading || 0; up.fov = d.fov || 70; up.exif = d.exif || {};
+    up.photo = d.photo; up.pos = d.pos; up.posFrom = d.posFrom || ''; up.heading = d.heading || 0; up.headingSet = !!d.headingSet; up.fov = d.fov || 70; up.exif = d.exif || {};
     up.steps = d.steps && d.steps.length ? d.steps : [{ text: '', photo: null }]; up.tags = d.tags || [];
     if (up.photo) $('upDrop').innerHTML = '<img src="' + up.photo + '" alt="成片">';
     $('upHeading').value = up.heading; $('upHeadingVal').textContent = up.heading + '°';
@@ -346,7 +346,7 @@
         up.photo = small; up.exif = exif; up.addr = ''; up.addrTried = false;
         $('upDrop').innerHTML = '<img src="' + small + '" alt="成片">';
         if (exif.lat) { up.pos = M.wgs2bd(exif.lng, exif.lat); up.posFrom = '照片里的拍摄位置'; }
-        if (exif.heading != null) { up.heading = Math.round(exif.heading) % 360; $('upHeading').value = up.heading; $('upHeadingVal').textContent = up.heading + '°'; }
+        if (exif.heading != null) { up.headingSet = true; up.heading = Math.round(exif.heading) % 360; $('upHeading').value = up.heading; $('upHeadingVal').textContent = up.heading + '°'; }
         up.fov = fovFrom(exif.f35);
         drawUp(); info(); meta();
         if (!exif.lat) JW.toast('这张照片没有记录拍摄地点，下面有打开相机位置记录的方法', 4000);
@@ -355,7 +355,7 @@
   function info() {
     var e = up.exif || {}, rows = [];
     rows.push(up.pos ? '站位：已确定（' + JW.esc(up.posFrom || '已定位') + '）' : '站位：还没确定。选原图会自动读取；也可以用你现在的位置，或在地图上点选');
-    rows.push(up.headingFrom ? '朝向：' + up.heading + '°（' + up.headingFrom + '）' : e.heading != null ? '朝向：' + Math.round(e.heading) + '°（来自照片）' : '朝向：照片里没有，用下面的指南针或地图点选补上');
+    rows.push(!up.headingSet ? '朝向：还没设置（可以跳过，发布后显示“朝向待补充”）' : up.headingFrom ? '朝向：' + up.heading + '°（' + up.headingFrom + '）' : e.heading != null ? '朝向：' + Math.round(e.heading) + '°（来自照片）' : '朝向：照片里没有，用下面的指南针或地图点选补上');
     rows.push(e.f35 ? '等效焦距 ' + e.f35 + 'mm → 视角约 ' + up.fov + '°' : '焦距：未读到，按主摄约 70° 估算');
     if (e.time) rows.push('拍摄时间：' + e.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3'));
     $('upInfo').innerHTML = '<div class="cond ' + (up.pos ? 'ok' : 'wait') + '"><span class="dot"></span><div>' + rows.join('<br>') + '</div></div>';
@@ -363,7 +363,7 @@
   function drawUp(noFly) {
     up.handles.forEach(function (h) { JW.map.remove(h); }); up.handles = [];
     if (!up.pos) return;
-    up.handles.push(JW.map.polygon(M.sectorPoints(up.pos[0], up.pos[1], up.heading, up.fov, 400), JW.COLORS.skill, 0.2));
+    if (up.headingSet) up.handles.push(JW.map.polygon(M.sectorPoints(up.pos[0], up.pos[1], up.heading, up.fov, 400), JW.COLORS.skill, 0.2));
     up.handles.push(JW.map.addMarker(up.pos[0], up.pos[1], JW.markerSvg('skill', true), 46, null));
     if (!noFly) JW.map.flyTo(up.pos[0], up.pos[1], 17);
   }
@@ -389,7 +389,7 @@
     var dev = [e.make && e.model && e.model.indexOf(e.make) < 0 ? e.make : '', e.model].filter(Boolean).join(' ');
     var s = {
       id: 'u' + Date.now(), mine: true, type: type, area: '网友发现', name: name, collection: col, topics: cols.slice(1),
-      lng: up.pos[0], lat: up.pos[1], heading: up.heading, fov: up.fov,
+      lng: up.pos[0], lat: up.pos[1], heading: up.headingSet ? up.heading : null, headingUnknown: !up.headingSet, fov: up.fov,
       cover: up.photo, coverHint: name, summary: body ? body.split('\n')[0].slice(0, 60) : tags.map(function (t) { return '#' + t; }).join(' '), post: body, tags: tags,
       photoMeta: { place: up.addr || '', time: e.time || '', device: dev, lens: e.lens || '', focal: e.focal || null, f35: e.f35 || null, fnum: e.fnum || null, exposure: e.exposure || null, iso: e.iso || null },
       technique: {}, light: light, lightNote: e.time ? '作者拍摄于 ' + e.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3') : '',
@@ -652,7 +652,7 @@
       g.fillRect(56, y - 34, tw + 32, 46); g.fillStyle = '#fff'; g.fillText(tag, 72, y);
       g.fillStyle = '#2A2521'; g.font = '800 54px ' + F; y = wrapText(g, s.name, 56, y + 84, W - 112, 66, 2);
       g.fillStyle = '#6B625A'; g.font = '30px ' + F;
-      var meta = [s.area, s.heading != null ? '镜头朝向 ' + Math.round(s.heading) + '°' : '镜头朝天', s.author ? '作者 ' + s.author.name : ''].filter(Boolean).join(' · ');
+      var meta = [s.area, s.heading != null ? '镜头朝向 ' + Math.round(s.heading) + '°' : s.headingUnknown ? '' : '镜头朝天', s.author ? '作者 ' + s.author.name : ''].filter(Boolean).join(' · ');
       g.fillText(meta, 56, y + 6); y += 62;
       g.fillStyle = '#2A2521'; g.font = '32px ' + F; y = wrapText(g, line != null && line !== '' ? line : (s.summary || ''), 56, y, W - 112 - 260, 46, 4);
       var t = s.technique || {}, tips = [t.lens, t.post, ({ day: '需要白天', golden: '黄金时刻最佳', night: '夜景', any: '随时可拍' })[s.light]].filter(Boolean).slice(0, 3);
