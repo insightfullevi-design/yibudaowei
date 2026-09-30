@@ -99,6 +99,17 @@
     this.map.centerAndZoom(new BMapGL.Point(c[0], c[1]), z);
   };
   Baidu.prototype.center = function (lng, lat, zoom) { this.map.centerAndZoom(new BMapGL.Point(lng, lat), zoom || this.map.getZoom(), { noAnimation: true }); };
+  // 地点搜索：返回最多 6 个结果 { title, address, p:[lng,lat] }
+  Baidu.prototype.search = function (q, cb) {
+    var done = false;
+    var ls = new BMapGL.LocalSearch(this.map, { pageCapacity: 6, onSearchComplete: function (r) {
+      if (done) return; done = true; var out = [];
+      try { var n = r ? r.getCurrentNumPois() : 0; for (var i = 0; i < n; i++) { var poi = r.getPoi(i); if (poi && poi.point) out.push({ title: poi.title, address: poi.address || '', p: [poi.point.lng, poi.point.lat] }); } } catch (e) {}
+      cb(out);
+    } });
+    ls.search(q);
+    setTimeout(function () { if (!done) { done = true; cb([]); } }, 8000);
+  };
   Baidu.prototype.fit = function (pts) { this.map.setViewport(pts.map(P), { margins: M.margins() }); };
   Baidu.prototype.locate = function (cb) {
     var geo = new BMapGL.Geolocation();
@@ -206,6 +217,10 @@
     this.cx = lng - off[0] / s; this.cy = lat - off[1] / (s * 1.17); this.render();
   };
   Offline.prototype.center = function (lng, lat, zoom) { if (zoom) this.z = zoom; this.cx = lng; this.cy = lat; this.render(); };
+  Offline.prototype.search = function (q, cb) {
+    var out = (window.JW_DATA.spots || []).filter(function (s) { return (s.name + (s.area || '')).indexOf(q) >= 0; }).slice(0, 6).map(function (s) { return { title: s.name, address: s.area || '', p: [s.lng, s.lat] }; });
+    setTimeout(function () { cb(out); }, 50);
+  };
   Offline.prototype.fit = function (pts) {
     var xs = pts.map(function (p) { return p[0]; }), ys = pts.map(function (p) { return p[1]; }), m = M.margins();
     var w = Math.max(100, this.el.clientWidth - m[1] - m[3]), h = Math.max(100, this.el.clientHeight - m[0] - m[2]);

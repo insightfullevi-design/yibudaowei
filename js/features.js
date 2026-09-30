@@ -123,10 +123,10 @@
       '<label class="upload-drop" id="upDrop"><input type="file" accept="image/*" id="upFile" hidden><span id="upDropText">＋ 从相册选择原图</span></label>' +
       '<div id="upMeta"></div>' +
       '<h3>2 · 站位</h3><div id="upInfo"></div>' +
-      '<div class="btn-row"><button class="btn-ghost" data-act="here">📍 用我现在的位置</button><button class="btn-ghost" data-act="pick">在地图上点选</button></div>' +
+      '<div class="btn-row"><button class="btn-ghost" data-act="here">📍 用我现在的位置</button><button class="btn-ghost" data-act="pick">搜索 / 在地图上点选</button></div>' +
       '<div class="form">' + field('镜头朝向', '<input id="upHeading" type="range" min="0" max="359" value="0"><span id="upHeadingVal" class="muted">0°</span>') + '</div>' +
       '<p class="muted" id="upHeadTip">华为、小米等很多安卓手机的照片里不记录朝向，可以用下面两种方法补上：</p>' +
-      '<div class="btn-row"><button class="btn-ghost" data-act="compass">🧭 举起手机对准拍摄方向</button><button class="btn-ghost" data-act="aim">在地图上点镜头对着的地方</button></div>' +
+      '<div class="btn-row"><button class="btn-ghost" data-act="compass">🧭 举起手机对准拍摄方向</button><button class="btn-ghost" data-act="aim">搜索或点选拍摄对象</button></div>' +
       '<h3>3 · 写帖子</h3><div class="form">' +
       field('标题（机位名称，必填）', '<input id="upName" maxlength="30" placeholder="例如：白玉兰桥下·颠倒世界">') +
       field('正文（选填）', '<textarea id="upBody" rows="5" placeholder="分享出片经验和机位细节：几点来光线最好、具体站在哪、用什么镜头和姿势、有没有门票或人流、要注意什么……"></textarea>') +
@@ -147,7 +147,7 @@
       if (act === 'pick') startPick();
       if (act === 'here') hereNow();
       if (act === 'compass') compassHeading();
-      if (act === 'aim') aimHeading();
+      if (act === 'aim') { if (!up.pos) return JW.toast('先确定站位'); startPick(2); }
       if (act === 'addstep') { collectSteps(); up.steps.push({ text: '', photo: null }); renderSteps(); }
       if (act === 'draft') saveDraft();
       if (act === 'loaddraft') loadDraft();
@@ -188,23 +188,61 @@
     box.innerHTML = '<div class="meta-card">' + rows.map(function (r) { return '<div><span>' + r[0] + '</span><b>' + JW.esc(r[1]) + '</b></div>'; }).join('') + '</div>';
   }
   // 在地图上点选：上传卡片降下去，点地图放点，点 ✓ 锁定后卡片回来
+  // 在地图上定站位和朝向：两步走。第 1 步“站在哪”（可以搜地点），第 2 步“朝哪拍”（搜你拍的对象，或点地图上它的位置）
   var picking = null;
-  function startPick() {
-    picking = { before: up.pos, beforeFrom: up.posFrom };
+  function startPick(step) {
+    picking = { before: up.pos, beforeFrom: up.posFrom, beforeHeading: up.heading, beforeHF: up.headingFrom, step: step || 1 };
     document.getElementById('sheet').classList.add('lowered'); document.body.classList.add('picking');
-    var bar = document.getElementById('pickBar');
-    if (!bar) { bar = document.createElement('div'); bar.id = 'pickBar'; document.body.appendChild(bar); }
-    bar.innerHTML = '<div class="pick-t"><b>点地图，放到你拍照时站的位置</b><span id="pickHint">' + (up.pos ? '已有站位，可以点别处改' : '还没选') + '</span></div>' +
-      '<button class="pick-x" id="pickCancel" aria-label="取消">取消</button><button class="pick-ok" id="pickOk" aria-label="确定站位">✓</button>';
-    $('pickCancel').onclick = function () { up.pos = picking.before; up.posFrom = picking.beforeFrom; endPick(); };
-    $('pickOk').onclick = function () { if (!up.pos) return JW.toast('先在地图上点一下'); up.posFrom = '地图点选'; endPick(); JW.toast('站位已锁定'); };
+    renderPickBar();
     (function arm() {
       JW.map.pick(function (p) {
         if (!picking) return;
-        up.pos = p; drawUp(true); var h = $('pickHint'); if (h) h.textContent = '已放好，点 ✓ 锁定；也可以再点别处';
-        arm();
+        if (picking.step === 1) { up.pos = p; up.posFrom = '地图点选'; drawUp(true); }
+        else if (up.pos) { up.heading = Math.round(M.bearing(up.pos, p)); up.headingFrom = '地图点选'; drawUp(true); }
+        renderPickBar(); arm();
       });
     })();
+  }
+  function renderPickBar() {
+    var bar = document.getElementById('pickBar');
+    if (!bar) { bar = document.createElement('div'); bar.id = 'pickBar'; document.body.appendChild(bar); }
+    var st = picking.step, ok = st === 1 ? !!up.pos : true;
+    bar.innerHTML = '<div class="pick-steps"><span class="' + (st === 1 ? 'on' : 'done') + '">1 站在哪</span><i></i><span class="' + (st === 2 ? 'on' : '') + '">2 朝哪拍</span></div>' +
+      '<form class="pick-search" id="pickForm"><input id="pickQ" type="search" enterkeyhint="search" placeholder="' + (st === 1 ? '搜地点，如：复旦大学新闻学院' : '搜你拍的对象，如：东方明珠') + '"><button>搜索</button></form>' +
+      '<div class="pick-res" id="pickRes"></div>' +
+      '<div class="pick-row"><div class="pick-t"><b>' + (st === 1 ? '点地图，放到你拍照时站的位置' : '点一下照片里拍的东西在哪') + '</b><span>' +
+        (st === 1 ? (up.pos ? '已放好，可以再点别处改' : '也可以先搜地点，地图会跳过去') : '镜头朝向 ' + up.heading + '°' + (up.headingFrom ? '（' + up.headingFrom + '）' : '') + '，地图上的扇形就是取景方向') + '</span></div>' +
+      '<button class="pick-x" id="pickCancel">' + (st === 1 ? '取消' : '跳过') + '</button><button class="pick-ok" id="pickOk" aria-label="下一步"' + (ok ? '' : ' disabled') + '>✓</button></div>';
+    $('pickCancel').onclick = function () {
+      if (st === 1) { up.pos = picking.before; up.posFrom = picking.beforeFrom; up.heading = picking.beforeHeading; up.headingFrom = picking.beforeHF; endPick(); }
+      else { endPick(); JW.toast('站位已锁定，朝向可以之后再调'); }
+    };
+    $('pickOk').onclick = function () {
+      if (st === 1) { if (!up.pos) return JW.toast('先在地图上点一下'); picking.step = 2; JW.map.flyTo(up.pos[0], up.pos[1], 17); renderPickBar(); JW.toast('站位已锁定，再告诉我镜头朝哪'); }
+      else { endPick(); $('upHeading').value = up.heading; $('upHeadingVal').textContent = up.heading + '°'; JW.toast('站位和朝向都锁定了'); }
+    };
+    $('pickForm').onsubmit = function (e) {
+      e.preventDefault(); var q = $('pickQ').value.trim(); if (!q) return;
+      $('pickRes').innerHTML = '<p class="muted">正在搜索…</p>';
+      JW.map.search(q, function (list) {
+        if (!picking) return;
+        var box = $('pickRes'); if (!box) return;
+        if (!list.length) { box.innerHTML = '<p class="muted">没搜到，换个说法，或者加上城市名试试</p>'; return; }
+        box.innerHTML = list.map(function (r, i) { return '<button data-r="' + i + '"><b>' + JW.esc(r.title) + '</b><span>' + JW.esc(r.address) + '</span></button>'; }).join('');
+        box.querySelectorAll('[data-r]').forEach(function (b) { b.onclick = function () {
+          var r = list[+b.getAttribute('data-r')]; box.innerHTML = '';
+          if (picking.step === 1) {
+            // 搜到的是大概位置：地图跳过去并先放一个点，再点地图微调到你真正站的地方
+            up.pos = r.p; up.posFrom = '搜索“' + r.title + '”后微调'; drawUp(true); JW.map.center ? JW.map.center(r.p[0], r.p[1], 18) : JW.map.flyTo(r.p[0], r.p[1], 18);
+            renderPickBar(); JW.toast('已跳到“' + r.title + '”，点地图把点挪到你站的位置');
+          } else if (up.pos) {
+            // 朝向 = 站位指向搜到的对象；对象再远（比如隔江的东方明珠）也能算准
+            up.heading = Math.round(M.bearing(up.pos, r.p)); up.headingFrom = '对准“' + r.title + '”'; drawUp(true);
+            renderPickBar(); JW.toast('镜头朝向 ' + up.heading + '°，对准' + r.title);
+          }
+        }; });
+      });
+    };
   }
   function endPick() {
     picking = null;

@@ -778,3 +778,19 @@ body.navigating .map-search, body.navigating .near, body.navigating .chips, body
 .nav-btns > * { flex: 1 1 auto; text-align: center; text-decoration: none; padding: 11px 10px; font-size: 14px; }
 .nav-btns .btn-main { flex: 1.3 1 auto; }
 @media (min-width: 900px) { body.navigating .navbar { left: 24px; right: auto; width: 440px; } }
+/* 选站位和朝向：两步 + 搜索 */
+body.picking #pickBar { display: grid; gap: 8px; align-items: stretch; padding: 12px 12px 12px 14px; }
+.pick-steps { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #9a9a9a; }
+.pick-steps span.on { color: #0f0f0f; font-weight: 700; }
+.pick-steps span.done { color: #3d5a07; }
+.pick-steps i { flex: 0 0 24px; height: 1px; background: #d8d8d4; }
+.pick-search { display: flex; gap: 6px; }
+.pick-search input { flex: 1; min-width: 0; border: 1px solid #e6e6e2; border-radius: 999px; padding: 9px 14px; font: inherit; font-size: 15px; background: #f7f7f4; }
+.pick-search button { border: 0; background: #0f0f0f; color: #fff; border-radius: 999px; padding: 0 16px; font-size: 14px; }
+.pick-res { display: grid; gap: 4px; max-height: 34vh; overflow-y: auto; }
+.pick-res:empty { display: none; }
+.pick-res button { text-align: left; border: 0; background: #f6f6f3; border-radius: 12px; padding: 8px 12px; display: grid; gap: 1px; }
+.pick-res b { font-size: 14px; } .pick-res span { font-size: 12px; color: #6e6e6e; }
+.pick-res p { margin: 4px 2px; font-size: 13px; }
+.pick-row { display: flex; align-items: center; gap: 8px; }
+.pick-ok[disabled] { opacity: .4; }
