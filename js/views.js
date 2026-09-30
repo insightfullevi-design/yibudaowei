@@ -130,15 +130,19 @@
     return '<svg class="t-art" viewBox="0 0 320 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + bg + fg + '</svg>';
   }
 
+  function wonderArt() {
+    return '<svg class="t-art" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="640" height="300" fill="#231f3a"/><circle cx="470" cy="110" r="46" fill="#d7f36b" opacity=".9"/><g fill="#ffffff" opacity=".35"><rect x="430" y="150" width="26" height="150"/><path d="M500 300 L520 90 L540 300Z"/><rect x="120" y="190" width="40" height="110"/><rect x="180" y="150" width="30" height="150"/></g></svg>';
+  }
   function topicCover(k) { var c = allSpots().filter(function (s) { return s.cover && window.JW_TOPIC(s, k); })[0]; return c ? '<img class="t-art" src="' + esc(c.cover) + '" alt="">' : ''; }
   function renderTopic() {
-    var w = catBy('wonder');
-    $('vTopic').innerHTML = '<div class="fit topic-page"><header class="pg-h"><h1>专题</h1><p>同一个主题的机位，攒成一条巡礼</p></header>' +
-      '<div class="tp-grid">' + TOPICS.map(function (t) {
-        var i = topicInfo(t.key), n = catCount(catBy(t.key));
-        return '<button class="tp-card" data-cat="' + t.key + '" style="--c:' + t.color + '">' + (topicCover(t.key) || topicArt(t.key, t.color)) + '<div class="tp-txt"><em>' + (n ? n + ' 个机位' : '等你来发第一个') + '</em><b>' + esc(i.name) + '</b><span>' + esc(i.desc) + '</span></div></button>';
-      }).join('') + '</div>' +
-      '<div class="tp-more one"><button data-cat="wonder" class="tp-wonder"><span class="moon" aria-hidden="true"></span><b>限定奇观</b><span>' + catCount(w) + ' 个 · 环金穿月一年只有几次</span><i>›</i></button></div></div>';
+    // 七个专题同一种卡片；数量按当前机位（含网友发帖的标签）实时统计
+    var list = TOPICS.concat([{ key: 'wonder', color: '#231f3a' }]);
+    $('vTopic').innerHTML = '<div class="fit topic-page"><header class="pg-h"><h1>专题</h1></header>' +
+      '<div class="tp-grid seven">' + list.map(function (t) {
+        var c = catBy(t.key), n = catCount(c), name = t.key === 'wonder' ? '限定奇观' : topicInfo(t.key).name;
+        var art = topicCover(t.key) || (t.key === 'wonder' ? wonderArt() : topicArt(t.key, t.color));
+        return '<button class="tp-card' + (t.key === 'wonder' ? ' wide' : '') + '" data-cat="' + t.key + '" style="--c:' + t.color + '">' + art + '<div class="tp-txt"><em>' + (n ? n + ' 个机位' : '等你来拍') + '</em><b>' + esc(name) + '</b></div></button>';
+      }).join('') + '</div></div>';
     bind($('vTopic'));
   }
 

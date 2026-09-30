@@ -1,7 +1,7 @@
 // 机位地图 · 主程序
 (function () {
   var CFG = window.JW_CONFIG, DATA = window.JW_DATA, M = window.JWMap, A = window.Astro, UX = window.JWUX;
-  var COLORS = { classic: '#0f0f0f', skill: '#0f0f0f', wonder: '#5b4bb7', route: '#0f0f0f' };
+  var COLORS = { classic: '#8fb82a', skill: '#8fb82a', wonder: '#6a5acd', route: '#8fb82a' };
   var TYPE_NAME = { classic: '拍同款', skill: '拍大片', wonder: '限定奇观', route: '路线' };
   var $ = function (id) { return document.getElementById(id); };
   var map, markers = {}, sel = [], walkInfo = null, filter = 'all', userMarker = null;
@@ -30,30 +30,53 @@
   var WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 
   // 占位图：没有实拍照片时显示，颜色随机位类型变化
+  // 还没有实拍照片时的占位图：浅灰底 + 取景框 +“等你来拍”
   function placeholder(hint, type, dark) {
-    var c = COLORS[type] || '#888';
+    var fg = dark ? '#ffffff' : '#0f0f0f';
     return '<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">' +
-      '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + (dark ? '#3a342e' : '#f3e6cf') + '"/><stop offset="1" stop-color="' + c + '" stop-opacity=".55"/></linearGradient></defs>' +
-      '<rect width="400" height="300" fill="url(#g)"/>' +
-      '<g fill="' + (dark ? '#ffffff' : '#2a2521') + '" fill-opacity=".18"><rect x="60" y="120" width="26" height="180"/><rect x="100" y="70" width="34" height="230"/><rect x="150" y="150" width="30" height="150"/><rect x="250" y="40" width="40" height="260"/><rect x="300" y="110" width="30" height="190"/></g>' +
-      '<rect x="18" y="18" width="364" height="264" rx="10" fill="none" stroke="' + (dark ? '#fff' : '#2a2521') + '" stroke-opacity=".35" stroke-dasharray="6 6"/>' +
-      '<text x="200" y="150" text-anchor="middle" font-size="20" font-family="PingFang SC,Microsoft YaHei,sans-serif" fill="' + (dark ? '#fff' : '#2a2521') + '">' + esc(hint || '待上传实拍照片') + '</text>' +
-      '<text x="200" y="178" text-anchor="middle" font-size="12" font-family="PingFang SC,Microsoft YaHei,sans-serif" fill="' + (dark ? '#fff' : '#2a2521') + '" fill-opacity=".6">示意图 · 实拍后替换</text></svg>';
+      '<rect width="400" height="300" fill="' + (dark ? '#26272a' : '#f1f1ee') + '"/>' +
+      '<g fill="' + fg + '" fill-opacity=".07"><rect x="60" y="120" width="26" height="180"/><rect x="100" y="70" width="34" height="230"/><rect x="150" y="150" width="30" height="150"/><rect x="250" y="40" width="40" height="260"/><rect x="300" y="110" width="30" height="190"/></g>' +
+      '<g fill="none" stroke="' + fg + '" stroke-opacity=".45" stroke-width="4" stroke-linecap="round"><path d="M40 70V40h30M330 40h30v30M360 230v30h-30M70 260H40v-30"/></g>' +
+      '<text x="200" y="146" text-anchor="middle" font-size="30" font-weight="600" font-family="PingFang SC,Microsoft YaHei,sans-serif" fill="' + fg + '">等你来拍</text>' +
+      '<text x="200" y="178" text-anchor="middle" font-size="14" font-family="PingFang SC,Microsoft YaHei,sans-serif" fill="' + fg + '" fill-opacity=".55">' + esc(String(hint || '上传第一张实拍').slice(0, 12)) + '</text></svg>';
   }
   function coverHtml(s, dark) {
     return s.cover ? '<img src="' + esc(s.cover) + '" alt="' + esc(s.name) + '">' : placeholder(s.coverHint, s.type, dark);
   }
 
-  function markerSvg(type, on) {
-    var c = COLORS[type], r = on ? 15 : 11;
-    var inner = type === 'wonder' ? '<circle cx="20" cy="20" r="4" fill="#fff"/><circle cx="20" cy="20" r="8" fill="none" stroke="#fff" stroke-width="1.5"/>'
-      : type === 'classic' ? '<rect x="15" y="15" width="10" height="10" rx="2" fill="#fff"/>'
-      : '<circle cx="20" cy="20" r="4.5" fill="#fff"/>';
+  function markerSvg(type, on, count) {
+    var c = COLORS[type] || '#8fb82a', r = on ? 13 : 9;
     return '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">' +
-      (on ? '<circle cx="20" cy="20" r="19" fill="' + c + '" fill-opacity=".22"/>' : '') +
-      '<circle cx="20" cy="20" r="' + r + '" fill="' + c + '" stroke="#fff" stroke-width="3"/>' + inner + '</svg>';
+      (on ? '<circle cx="20" cy="20" r="19" fill="' + c + '" fill-opacity=".25"/>' : '') +
+      '<circle cx="20" cy="20" r="' + r + '" fill="#ffffff" stroke="' + c + '" stroke-width="3"/>' +
+      (count > 1 ? '<text x="20" y="24.5" text-anchor="middle" font-size="12" font-weight="700" font-family="Arial,sans-serif" fill="#0f0f0f">' + count + '</text>' : '<circle cx="20" cy="20" r="3.5" fill="' + c + '"/>') + '</svg>';
   }
-
+  // 相近机位合并：相距 8 米以内、镜头朝向相差不到 45° 的算同一个机位
+  function sameView(a, b) {
+    if (M.distance([a.lng, a.lat], [b.lng, b.lat]) > 8) return false;
+    if (a.heading == null || b.heading == null) return true;
+    var d = Math.abs(((a.heading - b.heading) % 360 + 540) % 360 - 180);
+    return d <= 45;
+  }
+  function clusters() {
+    var list = DATA.spots.filter(visible).slice().sort(function (a, b) { return (b.cover ? 1 : 0) - (a.cover ? 1 : 0); }), out = [];
+    list.forEach(function (s) {
+      var c = out.filter(function (k) { return sameView(k.lead, s); })[0];
+      if (c) c.members.push(s); else out.push({ lead: s, members: [s] });
+    });
+    return out;
+  }
+  function openCluster(c) {
+    if (c.members.length < 2) return openSpot(c.lead.id);
+    var s = c.lead; clearSel(); highlight(s.id, s.type, s.lng, s.lat); drawView(s); map.flyTo(s.lng, s.lat, 18);
+    openSheet('<span class="tag">同一个机位</span><h2>' + esc(s.name) + '</h2><div class="muted">这里有 ' + c.members.length + ' 张相似的照片，左右滑动看看 · <span id="galIdx">1</span> / ' + c.members.length + '</div>' +
+      '<div class="gal" id="gal">' + c.members.map(function (m) {
+        return '<figure class="gal-item"><div class="gal-img">' + coverHtml(m) + '</div><figcaption><b>' + esc(m.name) + '</b><span>' + esc(m.author ? m.author.name : (m.area || '')) + (m.photoMeta && m.photoMeta.time ? ' · ' + esc(m.photoMeta.time.slice(0, 10).replace(/:/g, '-')) : '') + '</span></figcaption>' +
+          '<button class="gal-more" data-act="d:' + esc(m.id) + '">查看详情 ›</button></figure>';
+      }).join('') + '</div>');
+    var g = $('gal'); g.addEventListener('scroll', function () { var i = Math.round(g.scrollLeft / g.clientWidth) + 1; var el = $('galIdx'); if (el) el.textContent = Math.min(i, c.members.length); }, { passive: true });
+    bindSheet(function (act) { if (act.indexOf('d:') === 0) openSpot(act.slice(2)); });
+  }
   // ---------------- 光线条件判断（时间切面） ----------------
   function lightCheck(s, now) {
     now = now || new Date();
@@ -82,9 +105,9 @@
   function drawMarkers() {
     Object.keys(markers).forEach(function (id) { map.remove(markers[id]); });
     markers = {};
-    DATA.spots.forEach(function (s) {
-      if (!visible(s)) return;
-      markers[s.id] = map.addMarker(s.lng, s.lat, markerSvg(s.type), 34, function () { openSpot(s.id); });
+    clusters().forEach(function (c) {
+      var s = c.lead;
+      markers[s.id] = map.addMarker(s.lng, s.lat, markerSvg(s.type, false, c.members.length), 30, function () { openCluster(c); });
     });
     DATA.wonders.forEach(function (w) {
       if (filter !== 'all' && filter !== 'wonder') return;
@@ -152,39 +175,65 @@
   var labelsRaf = 0;
   function labelsSoon() { if (labelsRaf) return; labelsRaf = setTimeout(function () { labelsRaf = 0; renderLabels(); }, 16); }
   function labelThumb(s) { return s.cover ? '<img src="' + esc(s.cover) + '" alt="">' : placeholder(s.coverHint || s.name, s.type, false); }
+  // 热力图：每个机位画一团光晕，机位越密越“热”（浅青柠 → 黄 → 橙）
+  var heatCanvas = null, heatRamp = null;
+  function ramp() {
+    if (heatRamp) return heatRamp;
+    var c = document.createElement('canvas'); c.width = 256; c.height = 1; var g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 256, 0);
+    gr.addColorStop(0, 'rgba(215,243,107,0)'); gr.addColorStop(.25, 'rgba(215,243,107,.55)'); gr.addColorStop(.55, 'rgba(250,214,70,.75)'); gr.addColorStop(.8, 'rgba(247,150,50,.85)'); gr.addColorStop(1, 'rgba(236,88,50,.9)');
+    g.fillStyle = gr; g.fillRect(0, 0, 256, 1); heatRamp = g.getImageData(0, 0, 256, 1).data; return heatRamp;
+  }
+  function drawHeat(pts, W, H) {
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (!heatCanvas) heatCanvas = document.createElement('canvas');
+    heatCanvas.className = 'heat'; heatCanvas.width = W * dpr; heatCanvas.height = H * dpr; heatCanvas.style.width = W + 'px'; heatCanvas.style.height = H + 'px';
+    var g = heatCanvas.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    var R = 46;
+    pts.forEach(function (o) {
+      var gr = g.createRadialGradient(o.x, o.y, 0, o.x, o.y, R); gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(o.x, o.y, R, 0, 7); g.fill();
+    });
+    var img = g.getImageData(0, 0, heatCanvas.width, heatCanvas.height), d = img.data, rp = ramp();
+    for (var i = 3; i < d.length; i += 4) { var a = d[i]; if (!a) continue; var k = Math.min(255, a) * 4; d[i - 3] = rp[k]; d[i - 2] = rp[k + 1]; d[i - 1] = rp[k + 2]; d[i] = rp[k + 3]; }
+    g.putImageData(img, 0, 0);
+    return heatCanvas;
+  }
   function renderLabels() {
     var layer = $('mapLabels'); if (!layer || !map || !map.toPixel) return;
     if (!document.body.classList.contains('on-map')) { layer.innerHTML = ''; return; }
     var W = window.innerWidth, H = window.innerHeight, mobile = W < 900;
     var top = mobile ? 108 : 166, bottom = H - (mobile ? 190 : 110), right = mobile ? W : W - 430;
-    var LW = 148, LH = 46, placed = [], html = '', lines = '';
-    // 已经被占的区域：机位点本身
-    var pts = DATA.spots.filter(visible).map(function (s) { var p = map.toPixel(s.lng, s.lat); return { s: s, x: p[0], y: p[1] }; })
+    var LW = 150, LH = 48, placed = [], html = '', lines = '';
+    var all = DATA.spots.filter(visible).map(function (s) { var p = map.toPixel(s.lng, s.lat); return { s: s, x: p[0], y: p[1] }; })
+      .filter(function (o) { return o.x > -60 && o.x < W + 60 && o.y > -60 && o.y < H + 60; });
+    // 一个合并后的机位只出一个标签
+    var cl = clusters(), pts = cl.map(function (c) { var p = map.toPixel(c.lead.lng, c.lead.lat); return { c: c, s: c.lead, x: p[0], y: p[1] }; })
       .filter(function (o) { return o.x > -20 && o.x < right + 20 && o.y > top - 20 && o.y < bottom + 20; });
     pts.forEach(function (o) { placed.push([o.x - 12, o.y - 12, o.x + 12, o.y + 12]); });
-    // 有照片的、用户上传的优先
-    pts.sort(function (a, b) { return (b.s.cover ? 2 : 0) + (b.s.rowId ? 1 : 0) - (a.s.cover ? 2 : 0) - (a.s.rowId ? 1 : 0); });
+    pts.sort(function (a, b) { return (b.c.members.length - a.c.members.length) || ((b.s.cover ? 2 : 0) + (b.s.rowId ? 1 : 0) - (a.s.cover ? 2 : 0) - (a.s.rowId ? 1 : 0)); });
     var OFF = [[-LW - 26, -LH - 22], [26, -LH - 22], [-LW - 26, 22], [26, 22], [-LW / 2, -LH - 40], [-LW / 2, 40], [-LW - 40, -LH / 2], [40, -LH / 2]];
     function free(r) {
       if (r[0] < 6 || r[2] > right - 6 || r[1] < top || r[3] > bottom) return false;
       return !placed.some(function (q) { return r[0] < q[2] + 4 && r[2] > q[0] - 4 && r[1] < q[3] + 4 && r[3] > q[1] - 4; });
     }
-    var n = 0;
+    var n = 0, byLead = {};
     pts.forEach(function (o) {
+      byLead[o.s.id] = o.c;
       if (n >= 16) return;
       for (var i = 0; i < OFF.length; i++) {
         var x = o.x + OFF[i][0], y = o.y + OFF[i][1], r = [x, y, x + LW, y + LH];
         if (!free(r)) continue;
         placed.push(r); n++;
         var ax = Math.max(x, Math.min(o.x, x + LW)), ay = o.y < y ? y : o.y > y + LH ? y + LH : y + LH / 2;
-        var col = COLORS[o.s.type] || '#c8553d';
-        lines += '<line x1="' + o.x.toFixed(1) + '" y1="' + o.y.toFixed(1) + '" x2="' + ax.toFixed(1) + '" y2="' + ay.toFixed(1) + '" stroke="' + col + '" stroke-width="1.5"/>';
-        html += '<button class="mlabel" data-spot="' + esc(o.s.id) + '" style="left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px;--c:' + col + '"><span class="ml-img">' + labelThumb(o.s) + '</span><b>' + esc(o.s.name) + '</b></button>';
+        lines += '<line x1="' + o.x.toFixed(1) + '" y1="' + o.y.toFixed(1) + '" x2="' + ax.toFixed(1) + '" y2="' + ay.toFixed(1) + '" stroke="rgba(15,15,15,.35)" stroke-width="1"/>';
+        var cnt = o.c.members.length;
+        html += '<button class="mlabel" data-lead="' + esc(o.s.id) + '" style="left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px"><span class="ml-img">' + labelThumb(o.s) + (cnt > 1 ? '<i class="ml-n">' + cnt + '</i>' : '') + '</span><b>' + esc(o.s.name) + '</b></button>';
         break;
       }
     });
     layer.innerHTML = '<svg class="ml-lines" width="' + W + '" height="' + H + '">' + lines + '</svg>' + html;
-    layer.querySelectorAll('[data-spot]').forEach(function (b) { b.addEventListener('click', function () { openSpot(b.getAttribute('data-spot')); }); });
+    layer.insertBefore(drawHeat(all, W, H), layer.firstChild);
+    layer.querySelectorAll('[data-lead]').forEach(function (b) { b.addEventListener('click', function () { openCluster(byLead[b.getAttribute('data-lead')]); }); });
   }
 
   // 取景框在大地上的投影：从站位出发、沿朝向张开的扇形
