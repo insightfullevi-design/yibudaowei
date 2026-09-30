@@ -336,7 +336,12 @@
     document.querySelectorAll('#tabbar [data-tab]').forEach(function (b) { b.onclick = function () { go(b.getAttribute('data-tab')); }; });
     var ms = $('mapSearch'); if (ms) ms.onsubmit = function (e) { e.preventDefault(); search($('mapQ').value); $('mapQ').blur(); };
     window.addEventListener('jw-data', function () { if (current === 'home') renderHome(); if (current === 'profile') renderProfile(); if (current === 'map') renderNear(); });
-    S.onChange(function () { if (current === 'profile') renderProfile(); });
+    var homeSorted = false; // 云端点赞收藏第一次读到后，首页按新数字重排一次（用户还没滑动时）
+    S.onChange(function () {
+      if (current === 'profile') renderProfile();
+      var car = $('hmCar');
+      if (!homeSorted && S.cloudOk && current === 'home' && car && car.scrollLeft < 5) { homeSorted = true; renderHome(); }
+    });
     if (Cloud && Cloud.onChange) Cloud.onChange(function () { if (current === 'profile') renderProfile(); if (current === 'upload') renderUpload(); });
     setInterval(function () { if (current === 'profile' && !document.hidden) { var el = document.querySelector('.login-state'); if (el && me()) el.innerHTML = '<span class="dot-ok"></span>已登录 · ' + Math.ceil(X.idleLeft() / 60000) + ' 分钟内无操作将自动退出'; } }, 30000);
     // 从分享二维码进来直接进地图，从邮件链接进来进“我的”，其余先看首页
