@@ -1,10 +1,11 @@
 // 机位地图 · 主程序
 (function () {
-  var CFG = window.JW_CONFIG, DATA = window.JW_DATA, M = window.JWMap, A = window.Astro;
+  var CFG = window.JW_CONFIG, DATA = window.JW_DATA, M = window.JWMap, A = window.Astro, UX = window.JWUX;
   var COLORS = { classic: '#c8553d', skill: '#d98c2b', wonder: '#2b3a67', route: '#2f7d6d' };
   var TYPE_NAME = { classic: '拍同款', skill: '拍大片', wonder: '等奇观', route: '路线' };
   var $ = function (id) { return document.getElementById(id); };
-  var map, markers = {}, sel = [], walkInfo = null, filter = 'all';
+  var map, markers = {}, sel = [], walkInfo = null, filter = 'all', userMarker = null;
+  var arrival = { spotId: null, routePlanned: false, routeFailed: false, distanceMeters: null, loading: false };
   var spotById = {}; DATA.spots.forEach(function (s) { spotById[s.id] = s; });
 
   // 演示用起点（示例坐标，真实使用时取手机定位）
@@ -89,6 +90,7 @@
       if (filter !== 'all' && filter !== 'wonder') return;
       markers[w.id] = map.addMarker(w.target.lng, w.target.lat, markerSvg('wonder'), 34, function () { openWonder(w.id); });
     });
+    renderSpotRail();
   }
   function visible(s) {
     if (filter === 'all') return true;
@@ -99,6 +101,49 @@
   }
   function highlight(id, type, lng, lat) {
     sel.push(map.addMarker(lng, lat, markerSvg(type, true), 46, null));
+  }
+
+  function renderSpotRail() {
+    var rail = $('mapSpotRail'); if (!rail) return;
+    var list = DATA.spots.filter(visible);
+    rail.innerHTML = list.length ? list.map(function (s) {
+      return '<button class="map-spot-card" data-spot="' + esc(s.id) + '"><span class="map-spot-type" style="background:' + COLORS[s.type] + '"></span><span><b>' + esc(s.name) + '</b><small>' + esc(s.area) + ' · ' + esc(TYPE_NAME[s.type]) + '</small></span></button>';
+    }).join('') : '<div class="map-spot-empty">当前筛选下没有机位</div>';
+    rail.querySelectorAll('[data-spot]').forEach(function (button) {
+      button.addEventListener('click', function () { openSpot(button.getAttribute('data-spot')); });
+    });
+  }
+
+  function renderSearchResults(query) {
+    var results = $('mapSearchResults'); if (!results) return;
+    var q = String(query || '').trim();
+    if (!q) { results.innerHTML = ''; results.classList.remove('open'); return; }
+    var list = UX.searchSpots(DATA.spots.filter(visible), q, 6);
+    results.innerHTML = list.length ? list.map(function (s) {
+      return '<button data-search-spot="' + esc(s.id) + '"><b>' + esc(s.name) + '</b><span>' + esc(s.area) + ' · ' + esc(TYPE_NAME[s.type]) + '</span></button>';
+    }).join('') : '<div class="map-search-empty">没有匹配的机位，试试地点或城市名</div>';
+    results.classList.add('open');
+    results.querySelectorAll('[data-search-spot]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var spot = spotById[button.getAttribute('data-search-spot')];
+        if (!spot) return;
+        $('mapSearchInput').value = spot.name;
+        results.classList.remove('open');
+        openSpot(spot.id);
+      });
+    });
+  }
+
+  function locateOnMap() {
+    var button = $('btnLocateMap');
+    button.disabled = true; button.classList.add('loading');
+    map.locate(function (p) {
+      button.disabled = false; button.classList.remove('loading');
+      if (!p) { toast('暂时无法获取位置，请检查定位权限'); return; }
+      if (userMarker) map.remove(userMarker);
+      userMarker = map.addMarker(p[0], p[1], '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="#3b6fb6" fill-opacity=".22"/><circle cx="16" cy="16" r="7" fill="#3b6fb6" stroke="#fff" stroke-width="3"/></svg>', 32, null);
+      map.flyTo(p[0], p[1], 17); toast('已回到你的位置');
+    });
   }
   // 取景框在大地上的投影：从站位出发、沿朝向张开的扇形
   function drawView(s, radius) {
@@ -118,8 +163,30 @@
   }
 
   // ---------------- 底部卡片 ----------------
-  function openSheet(html) { $('sheet').classList.remove('tall'); $('sheetBody').innerHTML = html; $('sheet').classList.add('open'); $('sheet').setAttribute('aria-hidden', 'false'); $('sheetBody').scrollTop = 0; }
-  function closeSheet() { $('sheet').classList.remove('open', 'tall'); $('sheet').setAttribute('aria-hidden', 'true'); clearSel(); }
+  function openSheet(html) {
+    $('sheet').classList.remove('tall'); $('sheetBody').innerHTML = html; $('sheetPrimary').innerHTML = '';
+    $('sheet').classList.add('open'); $('sheet').setAttribute('aria-hidden', 'false');
+    document.body.classList.add('sheet-open'); $('sheetBody').scrollTop = 0;
+  }
+  function closeSheet() {
+    $('sheet').classList.remove('open', 'tall'); $('sheet').setAttribute('aria-hidden', 'true');
+    $('sheetPrimary').innerHTML = ''; document.body.classList.remove('sheet-open'); clearSel();
+    arrival = { spotId: null, routePlanned: false, routeFailed: false, distanceMeters: null, loading: false };
+  }
+
+  function renderArrivalPrimary(s) {
+    var footer = $('sheetPrimary');
+    var hasGuide = !!(s.guide && s.guide.length), phase = UX.navigationPhase({
+      routePlanned: arrival.routePlanned, routeFailed: arrival.routeFailed,
+      distanceMeters: arrival.distanceMeters, hasGuide: hasGuide
+    });
+    footer.innerHTML = '<button class="btn-main arrival-primary" id="arrivalPrimary"' + (arrival.loading ? ' disabled' : '') + '>' +
+      (arrival.loading ? '正在规划路线…' : esc(phase.label)) + '</button><div class="arrival-hint">' + esc(arrival.loading ? '正在获取你的位置' : phase.hint) + '</div>';
+    $('arrivalPrimary').addEventListener('click', function () {
+      if (phase.phase === 'plan') navigate(s);
+      else openGuide(s);
+    });
+  }
 
   function relation(heading, sunAz) {
     if (heading == null) return '';
@@ -129,6 +196,7 @@
 
   function openSpot(id) {
     var s = spotById[id]; if (!s) return;
+    arrival = { spotId: s.id, routePlanned: false, routeFailed: false, distanceMeters: null, loading: false };
     clearSel(); highlight(s.id, s.type, s.lng, s.lat); drawView(s);
     var sun = drawSun(s), lc = lightCheck(s), t = lc.times, tech = s.technique || {};
     map.flyTo(s.lng, s.lat, s.collection === 'rmb' ? 12 : 17);
@@ -145,8 +213,7 @@
       '<p>' + esc(s.summary) + '</p>' + sceneHtml(s) +
       '<div class="cond ' + lc.cls + '"><span class="dot"></span><div>' + esc(lc.text) + (s.lightNote ? '<br><span class="muted">' + esc(s.lightNote) + '</span>' : '') + '</div></div>' +
       '<div class="btn-row">' +
-        (s.guide && s.guide.length ? '<button class="btn-main" data-act="nav">导航到机位</button><button class="btn-ghost" data-act="guide">路书模式</button>' : '') +
-        '<button class="btn-ghost" data-act="copy">复刻同款</button><button class="btn-ghost" data-act="checkin">打卡</button><button class="btn-ghost" data-act="share">分享卡片</button>' +
+        '<button class="btn-ghost" data-act="copy">预览拍法</button><button class="btn-ghost" data-act="share">分享</button>' +
       '</div><div id="walkBox"></div>' +
       (techRows ? '<h3>拍法</h3><div class="tech">' + techRows + '</div>' : '') +
       '<h3>时间切面 · 今天（' + md(new Date()) + ' 周' + WEEK[new Date().getDay()] + '）</h3>' +
@@ -166,10 +233,8 @@
       (s.author ? '<div class="kv"><span>机位作者</span><span>' + (s.author.homepage && /^https?:\/\//.test(s.author.homepage) ? '<a href="' + esc(s.author.homepage) + '" target="_blank" rel="noopener">' + esc(s.author.name) + '</a>' : esc(s.author.name)) + '</span></div>' : '') +
       '<p class="muted">来源：' + esc(s.source || '') + '</p>'
     );
+    renderArrivalPrimary(s);
     bindSheet(function (act) {
-      if (act === 'nav') navigate(s);
-      if (act === 'guide') openGuide(s);
-      if (act === 'checkin') window.JWX && window.JWX.checkin(s);
       if (act === 'copy') window.JWX && window.JWX.camera(s);
       if (act === 'share') window.JWX && window.JWX.share(s);
     });
@@ -191,11 +256,17 @@
   // 导航：先取手机定位，失败就用示例起点
   function navigate(s, forceDemo, cb) {
     var box = $('walkBox');
+    arrival.loading = true; renderArrivalPrimary(s);
     function go(from, label) {
+      if (arrival.spotId !== s.id) return;
+      var distance = M.distance(from, [s.lng, s.lat]);
       map.walk(from, [s.lng, s.lat], function (r) {
+        if (arrival.spotId !== s.id) return;
+        arrival.loading = false; arrival.routePlanned = !!r; arrival.routeFailed = !r; arrival.distanceMeters = distance;
         if (box) box.innerHTML = r
-          ? '<div class="cond ok"><span class="dot"></span><div>从' + esc(label) + '步行 ' + esc(r.distance) + '，约 ' + esc(r.duration) + '。到了附近切换“路书模式”，按照片一步步找到站位。</div></div>'
-          : '<div class="cond bad"><span class="dot"></span><div>路线规划失败，可以直接用路书模式。</div></div>';
+          ? '<div class="arrival-progress' + (!(s.guide && s.guide.length) ? ' compact' : '') + '"><span class="done"><i>1</i>路线导航</span><b></b>' + (s.guide && s.guide.length ? '<span><i>2</i>最后100米</span><b></b><span><i>3</i>站位构图</span>' : '<span><i>2</i>站位构图</span>') + '</div><div class="cond ok"><span class="dot"></span><div>从' + esc(label) + '步行 ' + esc(r.distance) + '，约 ' + esc(r.duration) + '。先沿地图路线前往，到附近后点击下方按钮继续。</div></div>'
+          : '<div class="cond bad"><span class="dot"></span><div>路线规划失败，可以直接' + (s.guide && s.guide.length ? '进入最后一段路书' : '开始站位与构图') + '。</div></div>';
+        renderArrivalPrimary(s);
         if (cb) cb(r);
       });
     }
@@ -203,6 +274,7 @@
     if (forceDemo) return go(demo.p, demo.name);
     if (box) box.innerHTML = '<p class="muted">正在获取你的位置…</p>';
     map.locate(function (p) {
+      if (arrival.spotId !== s.id) return;
       if (p && M.distance(p, [s.lng, s.lat]) < 30000) go(p, '你的位置');
       else { toast('没拿到附近的定位，用示例起点演示'); go(demo.p, demo.name); }
     });
@@ -519,6 +591,12 @@
     $('statusPill').textContent = useBaidu ? '百度地图已连接' : '离线预览 · ' + (reason || '');
     drawMarkers();
     document.querySelectorAll('#chips button').forEach(function (b) { b.addEventListener('click', function () { onChip(b.getAttribute('data-f')); }); });
+    $('mapSearchInput').addEventListener('input', function () { renderSearchResults(this.value); });
+    $('mapSearchInput').addEventListener('focus', function () { renderSearchResults(this.value); });
+    $('mapSearchInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { this.value = ''; renderSearchResults(''); this.blur(); }
+    });
+    $('btnLocateMap').addEventListener('click', locateOnMap);
     $('sheetClose').addEventListener('click', closeSheet);
     $('guideExit').addEventListener('click', closeGuide);
     $('guideNext').addEventListener('click', guideNext);

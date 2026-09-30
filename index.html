@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>移步到位 · 导航到最美的拍照机位</title>
-<link rel="stylesheet" href="css/style.css?v=202609301710">
+<link rel="stylesheet" href="css/style.css?v=202609301715">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="logoMark" viewBox="0 0 160 160"><g fill="none" stroke="#2A2521" stroke-width="10" stroke-linecap="round"><path d="M24 50V24h26M110 24h26v26M136 110v26h-26M50 136H24v-26"/></g><path d="M80 108 L56 60 A54 54 0 0 1 104 60 Z" fill="#D98C2B"/><circle cx="80" cy="108" r="11" fill="#2A2521"/><circle cx="112" cy="46" r="8" fill="#2B3A67"/></symbol></svg>
   <header class="topbar">
     <button class="back" id="btnHome" aria-label="回到首页" hidden>‹</button>
     <span class="brand-name" hidden>移步到位</span>
-    <form class="search" id="mapSearch" role="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="mapQ" type="search" placeholder="搜机位、地标、剧名、城市" enterkeyhint="search"></form>
+    
     <div class="top-actions"><button class="btn-ghost" id="btnDemo" aria-label="演示">▶<span class="lbl"> 演示</span></button><button class="btn-ghost" id="btnUpload" hidden>＋</button><button class="btn-ghost btn-acc" id="btnAccount" hidden>登录</button></div>
   </header>
 
@@ -29,16 +29,25 @@
 
   <div id="map"></div>
 
+  <div class="map-search" role="search">
+    <span aria-hidden="true">⌕</span>
+    <input id="mapSearchInput" type="search" autocomplete="off" placeholder="搜索机位、地点或城市" aria-label="搜索机位、地点或城市">
+    <div class="map-search-results" id="mapSearchResults" aria-live="polite"></div>
+  </div>
+  <button class="map-locate" id="btnLocateMap" aria-label="回到我的位置" title="回到我的位置"><span aria-hidden="true">◎</span></button>
+  <div class="map-spot-rail" id="mapSpotRail" aria-label="当前地图上的机位"></div>
+
   <div class="status-pill" id="statusPill"></div>
 
   <!-- 地图页底部：我身边的机位 -->
   <section class="near" id="near" aria-label="我身边的机位"></section>
 
   <!-- 底部卡片：机位 / 路线 / 奇观 共用 -->
-  <section class="sheet" id="sheet" aria-hidden="true">
+  <section class="sheet" id="sheet" aria-hidden="true" role="dialog" aria-label="机位详情">
     <div class="sheet-grip" id="sheetGrip"></div>
     <button class="sheet-close" id="sheetClose" aria-label="关闭">×</button>
     <div class="sheet-body" id="sheetBody"></div>
+    <div class="sheet-primary" id="sheetPrimary"></div>
   </section>
 
   <!-- 路书模式：全屏一步一步走 -->
@@ -91,15 +100,16 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="config.js?v=202609301710"></script>
-  <script src="js/astro.js?v=202609301710"></script>
-  <script src="js/data.js?v=202609301710"></script>
-  <script src="js/map.js?v=202609301710"></script>
-  <script src="js/qr.js?v=202609301710"></script>
-  <script src="js/cloud.js?v=202609301710"></script>
-  <script src="js/social.js?v=202609301710"></script>
-  <script src="js/app.js?v=202609301710"></script>
-  <script src="js/features.js?v=202609301710"></script>
-  <script src="js/views.js?v=202609301710"></script>
+  <script src="config.js?v=202609301715"></script>
+  <script src="js/astro.js?v=202609301715"></script>
+  <script src="js/data.js?v=202609301715"></script>
+  <script src="js/map.js?v=202609301715"></script>
+  <script src="js/ux.js?v=202609301715"></script>
+  <script src="js/qr.js?v=202609301715"></script>
+  <script src="js/cloud.js?v=202609301715"></script>
+  <script src="js/social.js?v=202609301715"></script>
+  <script src="js/app.js?v=202609301715"></script>
+  <script src="js/features.js?v=202609301715"></script>
+  <script src="js/views.js?v=202609301715"></script>
 </body>
 </html>
