@@ -125,10 +125,12 @@
       '<h3>2 · 站位</h3><div id="upInfo"></div>' +
       '<div class="btn-row"><button class="btn-ghost" data-act="here">📍 用我现在的位置</button><button class="btn-ghost" data-act="pick">在地图上点选</button></div>' +
       '<div class="form">' + field('镜头朝向', '<input id="upHeading" type="range" min="0" max="359" value="0"><span id="upHeadingVal" class="muted">0°</span>') + '</div>' +
+      '<p class="muted" id="upHeadTip">华为、小米等很多安卓手机的照片里不记录朝向，可以用下面两种方法补上：</p>' +
+      '<div class="btn-row"><button class="btn-ghost" data-act="compass">🧭 举起手机对准拍摄方向</button><button class="btn-ghost" data-act="aim">在地图上点镜头对着的地方</button></div>' +
       '<h3>3 · 写帖子</h3><div class="form">' +
-      field('标题（机位名称）', '<input id="upName" maxlength="30" placeholder="例如：白玉兰桥下·颠倒世界">') +
-      field('正文', '<textarea id="upBody" rows="5" placeholder="分享出片经验和机位细节：几点来光线最好、具体站在哪、用什么镜头和姿势、有没有门票或人流、要注意什么……"></textarea>') +
-      '<label class="field"><span>标签（会用来归类成专题）</span><div class="tag-ed" id="upTags"></div><input id="upTagIn" placeholder="输入标签，按回车添加"></label>' +
+      field('标题（机位名称，必填）', '<input id="upName" maxlength="30" placeholder="例如：白玉兰桥下·颠倒世界">') +
+      field('正文（选填）', '<textarea id="upBody" rows="5" placeholder="分享出片经验和机位细节：几点来光线最好、具体站在哪、用什么镜头和姿势、有没有门票或人流、要注意什么……"></textarea>') +
+      '<label class="field"><span>标签（必填，至少选一个；会用来归类成专题）</span><div class="tag-ed" id="upTags"></div><input id="upTagIn" placeholder="输入标签，按回车添加"></label>' +
       '<div class="tag-sug" id="upSug"></div></div>' +
       '<h3>4 · 路书（可选）：最后一段怎么走</h3><p class="tip">从最近的地铁口或路口开始，每个转弯拍一张照片、写一句话。定位不准的地方，就靠它把人带到位。</p>' +
       '<div id="upSteps"></div><button class="btn-ghost wide" data-act="addstep">＋ 再加一步</button>' +
@@ -144,6 +146,8 @@
     JW.bindSheet(function (act) {
       if (act === 'pick') startPick();
       if (act === 'here') hereNow();
+      if (act === 'compass') compassHeading();
+      if (act === 'aim') aimHeading();
       if (act === 'addstep') { collectSteps(); up.steps.push({ text: '', photo: null }); renderSteps(); }
       if (act === 'draft') saveDraft();
       if (act === 'loaddraft') loadDraft();
@@ -207,6 +211,40 @@
     document.body.classList.remove('picking'); document.getElementById('sheet').classList.remove('lowered');
     var bar = document.getElementById('pickBar'); if (bar) bar.innerHTML = '';
     drawUp(true); info();
+  }
+  // 朝向：用手机指南针（站在拍照的位置，把手机背面对准要拍的方向）
+  function setHeading(h, from) {
+    up.heading = Math.round((h % 360 + 360) % 360); up.headingFrom = from; $('upHeading').value = up.heading; $('upHeadingVal').textContent = up.heading + '°（' + from + '）';
+    drawUp(true); info();
+  }
+  function compassHeading() {
+    function listen() {
+      var got = false, t = setTimeout(function () { window.removeEventListener('deviceorientationabsolute', h, true); window.removeEventListener('deviceorientation', h, true); if (!got) JW.toast('没读到指南针：请换用“在地图上点镜头对着的地方”', 3500); }, 4000);
+      function h(e) {
+        var deg = e.webkitCompassHeading != null ? e.webkitCompassHeading : (e.absolute || e.type === 'deviceorientationabsolute') && e.alpha != null ? 360 - e.alpha : null;
+        if (deg == null || got) return; got = true; clearTimeout(t);
+        window.removeEventListener('deviceorientationabsolute', h, true); window.removeEventListener('deviceorientation', h, true);
+        // 手机竖着对准前方时，屏幕朝向会影响读数，这里按竖屏处理
+        setHeading(deg, '手机指南针'); JW.toast('朝向已记录：' + up.heading + '°');
+      }
+      window.addEventListener('deviceorientationabsolute', h, true); window.addEventListener('deviceorientation', h, true);
+      JW.toast('请竖着拿手机，背面对准要拍的方向，保持 2 秒');
+    }
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission().then(function (r) { if (r === 'granted') listen(); else JW.toast('没有得到指南针权限'); }).catch(function () { JW.toast('没有得到指南针权限'); });
+    } else listen();
+  }
+  // 朝向：站位确定后，在地图上点一下镜头对着的地方，自动算出方向
+  function aimHeading() {
+    if (!up.pos) return JW.toast('先确定站位，再点镜头对着的地方');
+    document.getElementById('sheet').classList.add('lowered'); document.body.classList.add('picking');
+    var bar = document.getElementById('pickBar');
+    if (!bar) { bar = document.createElement('div'); bar.id = 'pickBar'; document.body.appendChild(bar); }
+    bar.innerHTML = '<div class="pick-t"><b>点一下镜头对着的地方</b><span>比如照片里的那栋楼</span></div><button class="pick-x" id="pickCancel">取消</button>';
+    var done = false;
+    function end() { done = true; document.body.classList.remove('picking'); document.getElementById('sheet').classList.remove('lowered'); bar.innerHTML = ''; }
+    $('pickCancel').onclick = end;
+    JW.map.pick(function (p) { if (done) return; end(); setHeading(M.bearing(up.pos, p), '地图上点选'); JW.toast('朝向已记录：' + up.heading + '°'); });
   }
   function hereNow() {
     if (!navigator.geolocation) return JW.toast('这个浏览器不支持定位');
@@ -275,7 +313,7 @@
   function info() {
     var e = up.exif || {}, rows = [];
     rows.push(up.pos ? '站位：已确定（' + JW.esc(up.posFrom || '已定位') + '）' : '站位：还没确定。选原图会自动读取；也可以用你现在的位置，或在地图上点选');
-    rows.push(e.heading != null ? '朝向：' + Math.round(e.heading) + '°（来自照片）' : '朝向：照片里没有，请拖动下面的滑块');
+    rows.push(up.headingFrom ? '朝向：' + up.heading + '°（' + up.headingFrom + '）' : e.heading != null ? '朝向：' + Math.round(e.heading) + '°（来自照片）' : '朝向：照片里没有，用下面的指南针或地图点选补上');
     rows.push(e.f35 ? '等效焦距 ' + e.f35 + 'mm → 视角约 ' + up.fov + '°' : '焦距：未读到，按主摄约 70° 估算');
     if (e.time) rows.push('拍摄时间：' + e.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3'));
     $('upInfo').innerHTML = '<div class="cond ' + (up.pos ? 'ok' : 'wait') + '"><span class="dot"></span><div>' + rows.join('<br>') + '</div></div>';
@@ -294,8 +332,10 @@
     if (!up.pos) return JW.toast('还不知道站位：用你现在的位置，或在地图上点选');
     if (!name) return JW.toast('写个标题（机位名称）');
     if (CLOUD && !Cloud.me()) { JW.toast('发布前请先登录'); return openAccount('login', '登录后发布的机位所有人都能看到，并署上你的名字'); }
-    var body = $('upBody').value.trim(), tags = up.tags.slice(), e = up.exif || {};
-    if (!body) return JW.toast('写几句出片经验或机位细节吧');
+    var body = $('upBody').value.trim(), e = up.exif || {};
+    var pending = $('upTagIn').value.trim(); if (pending) { addTag(pending); $('upTagIn').value = ''; }
+    if (!up.tags.length) { JW.toast('至少选一个标签，比如 #城市地标'); var sug = $('upSug'); if (sug) sug.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+    var tags = up.tags.slice();
     // 由标签推出玩法和专题，由拍摄时间推出光线条件（发帖时不用再选）
     var tj = tags.join(' ');
     var type = /奇观|穿月|悬日|月亮/.test(tj) ? 'wonder' : /同款|影视|电影|剧|人民币|钞能力|课本|书本|地球online|动漫|圣地|明星/.test(tj) ? 'classic' : 'skill';
@@ -308,7 +348,7 @@
     var s = {
       id: 'u' + Date.now(), mine: true, type: type, area: '网友发现', name: name, collection: col, topics: cols.slice(1),
       lng: up.pos[0], lat: up.pos[1], heading: up.heading, fov: up.fov,
-      cover: up.photo, coverHint: name, summary: body.split('\n')[0].slice(0, 60), post: body, tags: tags,
+      cover: up.photo, coverHint: name, summary: body ? body.split('\n')[0].slice(0, 60) : tags.map(function (t) { return '#' + t; }).join(' '), post: body, tags: tags,
       photoMeta: { place: up.addr || '', time: e.time || '', device: dev, lens: e.lens || '', focal: e.focal || null, f35: e.f35 || null, fnum: e.fnum || null, exposure: e.exposure || null, iso: e.iso || null },
       technique: {}, light: light, lightNote: e.time ? '作者拍摄于 ' + e.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3') : '',
       access: { fee: '', booking: '', hours: '' },
