@@ -794,3 +794,8 @@ body.picking #pickBar { display: grid; gap: 8px; align-items: stretch; padding: 
 .pick-res p { margin: 4px 2px; font-size: 13px; }
 .pick-row { display: flex; align-items: center; gap: 8px; }
 .pick-ok[disabled] { opacity: .4; }
+.gps-help { background: #fff7e6; border: 1px solid #f3dfb2; border-radius: 14px; padding: 10px 12px; font-size: 13px; line-height: 1.6; margin: 8px 0; }
+.gps-help > b { display: block; font-size: 14px; margin-bottom: 2px; }
+.gps-help p { margin: 2px 0; }
+.gps-help ul { margin: 4px 0; padding-left: 18px; }
+.gps-help li b { font-weight: 600; }

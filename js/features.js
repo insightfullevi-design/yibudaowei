@@ -119,7 +119,7 @@
       '<span class="tag skill">发布机位</span><h2>分享一个你发现的好角度</h2>' +
       (d ? '<div class="cond wait"><span class="dot"></span><div>有一份 ' + JW.esc(d.saved || '') + ' 存的草稿。<button class="link" data-act="loaddraft">继续编辑</button> · <button class="link" data-act="dropdraft">丢弃</button></div></div>' : '') +
       '<h3>1 · 照片</h3>' +
-      '<p class="tip">请<b>直接从手机相册选原图</b>，会自动读出拍摄地点、时间、设备和相机参数。经过微信、小红书转发的照片会丢失这些信息。</p>' +
+      '<p class="tip">请<b>直接从手机相册选原图</b>，会自动读出拍摄地点、时间、设备和相机参数。拍照前请确认相机设置里的“地理位置”已打开；经过微信、小红书转发的照片会丢失这些信息。</p>' +
       '<label class="upload-drop" id="upDrop"><input type="file" accept="image/*" id="upFile" hidden><span id="upDropText">＋ 从相册选择原图</span></label>' +
       '<div id="upMeta"></div>' +
       '<h3>2 · 站位</h3><div id="upInfo"></div>' +
@@ -186,6 +186,10 @@
       try { new BMapGL.Geocoder().getLocation(new BMapGL.Point(p0[0], p0[1]), function (r) { if (r && r.address) { up.addr = r.address; meta(); } }); } catch (er) {}
     }
     box.innerHTML = '<div class="meta-card">' + rows.map(function (r) { return '<div><span>' + r[0] + '</span><b>' + JW.esc(r[1]) + '</b></div>'; }).join('') + '</div>';
+    // 照片里没有位置：教用户打开相机的“地理位置”，下次拍的照片就能自动定位
+    if (!e.lat) box.innerHTML += '<div class="gps-help"><b>这张照片没有记录拍摄地点</b><p>这次可以用下面的“搜索 / 在地图上点选”补上。想让以后的照片自动定位，打开相机的位置记录：</p>' +
+      '<ul><li><b>苹果</b>：设置 → 隐私与安全性 → 定位服务 → 相机 → 使用 App 期间</li><li><b>华为 / 荣耀</b>：相机 → 右上角设置 → 打开“地理位置”</li><li><b>小米 / 红米</b>：相机 → 设置 → 打开“保存地理位置”</li><li><b>OPPO / vivo</b>：相机 → 设置 → 打开“地理位置”或“位置信息”</li></ul>' +
+      '<p class="muted">另外，经过微信、小红书转发的照片也会丢失地点，请从手机相册直接选原图。</p></div>';
   }
   // 在地图上点选：上传卡片降下去，点地图放点，点 ✓ 锁定后卡片回来
   // 在地图上定站位和朝向：两步走。第 1 步“站在哪”（可以搜地点），第 2 步“朝哪拍”（搜你拍的对象，或点地图上它的位置）
@@ -345,7 +349,7 @@
         if (exif.heading != null) { up.heading = Math.round(exif.heading) % 360; $('upHeading').value = up.heading; $('upHeadingVal').textContent = up.heading + '°'; }
         up.fov = fovFrom(exif.f35);
         drawUp(); info(); meta();
-        if (!exif.lat) JW.toast('这张照片里没有位置信息，可能是转发过的图。可以点“用我现在的位置”或在地图上点选', 4500);
+        if (!exif.lat) JW.toast('这张照片没有记录拍摄地点，下面有打开相机位置记录的方法', 4000);
       }).catch(function () { JW.toast('这张照片读取失败，换一张试试'); });
   }
   function info() {
