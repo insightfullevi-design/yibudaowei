@@ -255,9 +255,11 @@ window.JW_DATA = {
 
   collections: {
     film: { name: '影视同款', desc: '剧里的名场面，就在你路过的街角。' },
-    rmb: { name: '人民币里的中国', desc: '集齐 5 张，点亮全国地图。' },
-    textbook: { name: '地球 online', desc: '举起课本对齐封面上的远方，参与藏书接力。' },
-    landmark: { name: '热门地标打卡', desc: '大家都在拍的地标，换个站位拍出不一样。' }
+    star: { name: '明星同款', desc: '偶像站过的那个位置，换你来站。' },
+    textbook: { name: '书本同款', desc: '举起课本对齐封面上的远方，参与藏书接力。' },
+    rmb: { name: '钞能力同款', desc: '人民币背面的风景，集齐 5 张点亮全国。' },
+    landmark: { name: '城市地标', desc: '大家都在拍的地标，换个站位拍出不一样。' },
+    creative: { name: '创意机位', desc: '倒影、仰拍、借位，普通地方也能出片。' }
   },
 
   routes: [
@@ -299,7 +301,25 @@ window.JW_DATA = {
   ]
 };
 
-// 热门地标打卡：把这些机位归进“热门地标”专题
-['mirror', 'lounge', 'ring', 'sticker', 'snowking', 'liziba', 'zootopia'].forEach(function (id) {
-  window.JW_DATA.spots.forEach(function (s) { if (s.id === id && !s.collection) s.collection = 'landmark'; });
-});
+// 专题归属：一个机位可以同时属于几个专题（collection 是主专题，topics 是其余专题）
+(function () {
+  var extra = {
+    landmark: ['lounge', 'ring', 'sticker', 'liziba', 'zootopia', 'mirror'],
+    creative: ['mirror', 'snowking', 'bench', 'sticker', 'eling', 'erchang']
+  };
+  Object.keys(extra).forEach(function (k) {
+    extra[k].forEach(function (id) {
+      window.JW_DATA.spots.forEach(function (s) { if (s.id === id) { if (!s.collection) s.collection = k; else if (s.collection !== k) (s.topics = s.topics || []).push(k); } });
+    });
+  });
+})();
+// 判断机位是否属于某个专题；限定奇观 = 等奇观类机位
+window.JW_TOPIC = function (s, k) {
+  if (k === 'wonder') return s.type === 'wonder';
+  return s.collection === k || (s.topics || []).indexOf(k) >= 0 || (s.tags || []).some(function (t) { return (window.JW_TAGTOPIC || function () { return null; })(t) === k; });
+};
+// 用户发帖的标签 → 专题
+window.JW_TAGTOPIC = function (t) {
+  return /影视|电影|剧|动漫|圣地/.test(t) ? 'film' : /明星|偶像|爱豆/.test(t) ? 'star' : /书本|课本|地球online|藏书/.test(t) ? 'textbook'
+    : /钞能力|人民币/.test(t) ? 'rmb' : /地标/.test(t) ? 'landmark' : /创意|倒影|仰拍|借位/.test(t) ? 'creative' : /奇观|穿月|悬日/.test(t) ? 'wonder' : null;
+};

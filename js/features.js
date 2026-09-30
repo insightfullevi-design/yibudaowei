@@ -110,7 +110,7 @@
   var up = null;
   function draftKey() { return 'yjdw_draft_' + myId(); }
   function readDraft() { try { return JSON.parse(localStorage.getItem(draftKey()) || 'null'); } catch (e) { return null; } }
-  var TAG_SUGGEST = ['夜景', '日落', '仰拍', '广角', '倒影', '影视同款', '人民币里的中国', '地球online', '热门地标', '免费', '需预约', '人少'];
+  var TAG_SUGGEST = ['影视同款', '明星同款', '书本同款', '钞能力同款', '城市地标', '创意机位', '限定奇观', '夜景', '日落', '免费', '需预约', '人少'];
   function openUpload() {
     up = { photo: null, pos: null, heading: 0, fov: 70, handles: [], steps: [{ text: '', photo: null }], posFrom: '', tags: [] };
     JW.clearSel();
@@ -298,14 +298,15 @@
     if (!body) return JW.toast('写几句出片经验或机位细节吧');
     // 由标签推出玩法和专题，由拍摄时间推出光线条件（发帖时不用再选）
     var tj = tags.join(' ');
-    var type = /奇观|穿月|悬日|月亮/.test(tj) ? 'wonder' : /同款|影视|电影|剧|人民币|课本|地球online|动漫|圣地/.test(tj) ? 'classic' : 'skill';
-    var col = /影视|电影|剧|动漫|圣地/.test(tj) ? 'film' : /人民币/.test(tj) ? 'rmb' : /地球online|课本/.test(tj) ? 'textbook' : /地标/.test(tj) ? 'landmark' : undefined;
+    var type = /奇观|穿月|悬日|月亮/.test(tj) ? 'wonder' : /同款|影视|电影|剧|人民币|钞能力|课本|书本|地球online|动漫|圣地|明星/.test(tj) ? 'classic' : 'skill';
+    var cols = tags.map(window.JW_TAGTOPIC).filter(function (k) { return k && k !== 'wonder'; });
+    var col = cols[0];
     var hr = e.time ? +e.time.slice(11, 13) : -1;
     var light = /夜景|夜/.test(tj) ? 'night' : /日落|黄金/.test(tj) ? 'golden' : hr >= 19 || (hr >= 0 && hr < 5) ? 'night' : hr >= 16 ? 'golden' : hr >= 5 ? 'day' : 'any';
     var steps = up.steps.filter(function (st) { return st.text || st.photo; });
     var dev = [e.make && e.model && e.model.indexOf(e.make) < 0 ? e.make : '', e.model].filter(Boolean).join(' ');
     var s = {
-      id: 'u' + Date.now(), mine: true, type: type, area: '网友发现', name: name, collection: col,
+      id: 'u' + Date.now(), mine: true, type: type, area: '网友发现', name: name, collection: col, topics: cols.slice(1),
       lng: up.pos[0], lat: up.pos[1], heading: up.heading, fov: up.fov,
       cover: up.photo, coverHint: name, summary: body.split('\n')[0].slice(0, 60), post: body, tags: tags,
       photoMeta: { place: up.addr || '', time: e.time || '', device: dev, lens: e.lens || '', focal: e.focal || null, f35: e.f35 || null, fnum: e.fnum || null, exposure: e.exposure || null, iso: e.iso || null },
@@ -524,11 +525,9 @@
   function drawLogo(g, x, y, size) {
     var k = size / 160;
     g.save(); g.translate(x, y); g.scale(k, k);
-    g.strokeStyle = '#2A2521'; g.lineWidth = 10; g.lineCap = 'round'; g.lineJoin = 'round';
-    [[24, 50, 24, 24, 50, 24], [110, 24, 136, 24, 136, 50], [136, 110, 136, 136, 110, 136], [50, 136, 24, 136, 24, 110]].forEach(function (p) { g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(p[2], p[3]); g.lineTo(p[4], p[5]); g.stroke(); });
-    g.fillStyle = '#D98C2B'; g.beginPath(); g.moveTo(80, 108); g.lineTo(56, 60); g.arc(80, 108, 54, Math.PI + 1.107, 2 * Math.PI - 1.107); g.closePath(); g.fill();
-    g.fillStyle = '#2A2521'; g.beginPath(); g.arc(80, 108, 11, 0, 7); g.fill();
-    g.fillStyle = '#2B3A67'; g.beginPath(); g.arc(112, 46, 8, 0, 7); g.fill();
+    g.fillStyle = '#0f0f0f'; g.beginPath(); g.arc(80, 80, 80, 0, 7); g.fill();
+    g.fillStyle = '#d7f36b'; g.beginPath(); g.moveTo(80, 118); g.lineTo(46, 54); g.arc(80, 118, 70, Math.PI + 1.08, 2 * Math.PI - 1.08); g.closePath(); g.fill();
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(80, 118, 11, 0, 7); g.fill();
     g.restore();
   }
   // 通用分享面板：预览图 + 一句话（可改）+ 分享 / 保存 / 复制链接
@@ -604,7 +603,7 @@
       : field('邮箱', '<input id="acEmail" type="email" autocomplete="email">') + field('密码', '<input id="acPw" type="password" autocomplete="current-password">') +
         '<div class="btn-row"><button class="btn-main" data-act="login">登录</button></div><p class="muted"><a href="#" id="acResend">没收到确认邮件？重新发送</a></p>';
     JW.openSheet('<span class="tag skill">账号</span><h2>' + (tab === 'signup' ? '加入移步到位' : tab === 'forgot' ? '找回密码' : '欢迎回来') + '</h2>' +
-      (hint ? '<p class="muted">' + JW.esc(hint) + '</p>' : '') + tabs + '<div class="form">' + body + '</div><div id="acMsg"></div>');
+      (hint && tab !== 'forgot' ? '<p class="muted">' + JW.esc(hint) + '</p>' : '') + tabs + '<div class="form">' + body + '</div><div id="acMsg"></div>');
     $('acTabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) openAccount(b.getAttribute('data-v'), hint); });
     var rs = $('acResend'); if (rs) rs.addEventListener('click', function (e) { e.preventDefault(); var em = $('acEmail').value.trim(); if (!em) return msg('先在上面填上邮箱', 'wait'); Cloud.resendConfirm(em).then(function () { msg('确认邮件已重新发送，请查收（也看看垃圾箱）', 'ok'); }).catch(function (er) { msg(er.message, 'bad'); }); });
     function msg(t, cls) { $('acMsg').innerHTML = '<div class="cond ' + cls + '"><span class="dot"></span><div>' + JW.esc(t) + '</div></div>'; }
@@ -628,7 +627,13 @@
       }
       if (act === 'forgot') {
         if (!em) return msg('请填写邮箱', 'wait');
-        busy(act, true); Cloud.resetPassword(em).then(function () { msg('重置邮件已发送：点邮件里的链接，回到这里设置新密码', 'ok'); }).catch(function (e) { busy(act, false); msg(e.message, 'bad'); });
+        busy(act, true);
+        Cloud.resetPassword(em).then(function () {
+          msg('重置邮件已发到 ' + em + '。请在这台手机上打开邮件里的链接，会回到这里让你设置新密码。几分钟没收到的话，看看垃圾邮件箱。', 'ok');
+          // 60 秒后可以重新发送，按钮不再一直是灰的
+          var b = document.querySelector('#sheetBody [data-act=forgot]'), left = 60;
+          var tm = setInterval(function () { left--; if (!b || !document.body.contains(b)) return clearInterval(tm); b.textContent = left > 0 ? '重新发送（' + left + ' 秒后）' : '重新发送重置邮件'; if (left <= 0) { clearInterval(tm); busy(act, false); } }, 1000);
+        }).catch(function (e) { busy(act, false); msg(e.message, 'bad'); });
       }
     });
   }

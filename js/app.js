@@ -1,8 +1,8 @@
 // 机位地图 · 主程序
 (function () {
   var CFG = window.JW_CONFIG, DATA = window.JW_DATA, M = window.JWMap, A = window.Astro, UX = window.JWUX;
-  var COLORS = { classic: '#c8553d', skill: '#d98c2b', wonder: '#2b3a67', route: '#2f7d6d' };
-  var TYPE_NAME = { classic: '拍同款', skill: '拍大片', wonder: '等奇观', route: '路线' };
+  var COLORS = { classic: '#0f0f0f', skill: '#0f0f0f', wonder: '#5b4bb7', route: '#0f0f0f' };
+  var TYPE_NAME = { classic: '拍同款', skill: '拍大片', wonder: '限定奇观', route: '路线' };
   var $ = function (id) { return document.getElementById(id); };
   var map, markers = {}, sel = [], walkInfo = null, filter = 'all', userMarker = null;
   var arrival = { spotId: null, routePlanned: false, routeFailed: false, distanceMeters: null, loading: false };
@@ -94,7 +94,7 @@
   }
   function visible(s) {
     if (filter === 'all') return true;
-    if (filter.indexOf('c:') === 0) return s.collection === filter.slice(2);
+    if (filter.indexOf('c:') === 0) return window.JW_TOPIC(s, filter.slice(2));
     if (filter === 'mine') return !!s.mine;
     if (filter === 'route') return DATA.routes.some(function (r) { return r.spotIds.indexOf(s.id) >= 0; });
     return s.type === filter;
@@ -615,7 +615,7 @@
     setFilter(f); closeSheet();
     if (f.indexOf('c:') === 0) {
       var key = f.slice(2), col = DATA.collections[key];
-      var list = DATA.spots.filter(function (s) { return s.collection === key; });
+      var list = DATA.spots.filter(function (s) { return window.JW_TOPIC(s, key); });
       map.fit(list.map(function (s) { return [s.lng, s.lat]; }).concat(list.length === 1 ? [[list[0].lng + 0.01, list[0].lat + 0.01]] : []));
       openSheet('<span class="tag classic">专题</span><h2>' + esc(col.name) + '</h2><p>' + esc(col.desc) + '</p>' +
         list.map(function (s, k) { return '<div class="demo-item" data-act="s' + k + '"><div class="demo-no" style="background:' + COLORS[s.type] + '">' + (k + 1) + '</div><div><b>' + esc(s.name) + '</b><div class="muted">' + esc(s.area) + (s.status && s.status.note ? ' · ' + esc(s.status.note) : '') + '</div></div></div>'; }).join(''));

@@ -36,14 +36,14 @@
   function goMap(fn) { tab = 'map'; show('map'); if (fn) setTimeout(fn, 60); }
 
   // ---------------- 分类与专题 ----------------
-  var PLAYS = { classic: '拍同款', skill: '拍大片', wonder: '等奇观' };
-  var TOPICS = [{ key: 'film', color: '#C8553D' }, { key: 'rmb', color: '#8A6A2E' }, { key: 'textbook', color: '#2B3A67' }, { key: 'landmark', color: '#2F7D6D' }];
+  var PLAYS = { classic: '拍同款', skill: '拍大片', wonder: '限定奇观' };
+  var TOPICS = [{ key: 'film', color: '#2a2140' }, { key: 'star', color: '#3a2438' }, { key: 'textbook', color: '#1f2c3a' }, { key: 'rmb', color: '#33301f' }, { key: 'landmark', color: '#1c2530' }, { key: 'creative', color: '#23301f' }];
   function topicInfo(k) { var c = window.JW_DATA.collections[k] || {}; return { name: c.name || k, desc: c.desc || '' }; }
   function catBy(k) {
     if (PLAYS[k]) return { key: k, name: PLAYS[k], desc: '', color: JW.COLORS[k], wonder: k === 'wonder', test: function (s) { return s.type === k; } };
     if (k === 'route') return { key: k, name: '机位路线', desc: '按光线和地形排好顺序', color: '#2F7D6D', route: true };
     var t = TOPICS.filter(function (x) { return x.key === k; })[0] || TOPICS[0], i = topicInfo(t.key);
-    return { key: t.key, name: i.name, desc: i.desc, color: t.color, test: function (s) { return s.collection === t.key; } };
+    return { key: t.key, name: i.name, desc: i.desc, color: t.color, test: function (s) { return window.JW_TOPIC(s, t.key); } };
   }
   function catCount(c) { if (c.route) return window.JW_DATA.routes.length; var n = allSpots().filter(c.test).length; return c.wonder ? n + window.JW_DATA.wonders.length : n; }
 
@@ -107,7 +107,6 @@
       '<form class="search hm-search" data-search><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input type="search" placeholder="搜机位、地标、剧名、城市" enterkeyhint="search"></form>' +
       '<div class="carousel" id="hmCar">' + list.map(function (s) {
         return '<article class="slide" data-go-spot="' + esc(s.id) + '"><div class="slide-img">' + coverHtml(s, true) + '</div><div class="slide-shade"></div>' +
-          '<span class="slide-tag" style="background:' + JW.COLORS[s.type] + '">' + esc(JW.TYPE_NAME[s.type]) + '</span>' +
           '<div class="slide-txt"><b>' + esc(s.name) + '</b><span>' + esc(s.area) + (s.author ? ' · ' + esc(s.author.name) : '') + '</span>' +
           '<div class="slide-act"><button class="btn-main" data-go-spot="' + esc(s.id) + '">去拍同款</button><div class="rx-row" data-rxbox="' + esc(s.id) + '" data-dark>' + S.buttons(s.id, true) + '</div></div></div></article>';
       }).join('') + '</div>' +
@@ -123,18 +122,23 @@
     var fg = {
       film: '<g fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="3"><rect x="40" y="70" width="240" height="150" rx="6"/></g><g fill="#fff" opacity=".35">' + [0,1,2,3,4,5,6,7].map(function (i) { return '<rect x="' + (50 + i * 29) + '" y="78" width="16" height="10" rx="2"/><rect x="' + (50 + i * 29) + '" y="202" width="16" height="10" rx="2"/>'; }).join('') + '</g><path d="M140 125v40l34-20z" fill="#fff" opacity=".6"/>',
       textbook: '<g fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="3"><path d="M160 90c-30-16-70-18-110-10v140c40-8 80-6 110 10 30-16 70-18 110-10V80c-40-8-80-6-110 10zM160 90v140"/></g><path d="M70 190l30-40 22 24 18-16 20 32" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="3"/>',
-      rmb: '<g fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="3"><rect x="40" y="90" width="240" height="120" rx="8"/><circle cx="100" cy="150" r="30"/></g><path d="M160 180l26-46 22 30 16-18 24 34" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="3"/><text x="258" y="120" fill="#fff" opacity=".6" font-size="22" font-weight="700" text-anchor="end">¥</text>'
+      rmb: '<g fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="3"><rect x="40" y="90" width="240" height="120" rx="8"/><circle cx="100" cy="150" r="30"/></g><path d="M160 180l26-46 22 30 16-18 24 34" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="3"/><text x="258" y="120" fill="#fff" opacity=".6" font-size="22" font-weight="700" text-anchor="end">¥</text>',
+      star: '<path d="M160 90l18 40 44 5-33 30 9 44-38-22-38 22 9-44-33-30 44-5z" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3"/>',
+      landmark: '<g fill="#fff" opacity=".4"><rect x="70" y="150" width="30" height="120"/><rect x="150" y="80" width="10" height="190"/><circle cx="155" cy="190" r="26"/><circle cx="155" cy="130" r="16"/><rect x="220" y="120" width="34" height="150"/></g>',
+      creative: '<path d="M160 280 L100 140 A150 150 0 0 1 220 140 Z" fill="#d7f36b" opacity=".75"/><circle cx="160" cy="280" r="12" fill="#fff"/>'
     }[k] || '';
     return '<svg class="t-art" viewBox="0 0 320 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + bg + fg + '</svg>';
   }
 
+  function topicCover(k) { var c = allSpots().filter(function (s) { return s.cover && window.JW_TOPIC(s, k); })[0]; return c ? '<img class="t-art" src="' + esc(c.cover) + '" alt="">' : ''; }
   function renderTopic() {
+    var w = catBy('wonder');
     $('vTopic').innerHTML = '<div class="fit topic-page"><header class="pg-h"><h1>专题</h1><p>同一个主题的机位，攒成一条巡礼</p></header>' +
       '<div class="tp-grid">' + TOPICS.map(function (t) {
-        var i = topicInfo(t.key);
-        return '<button class="tp-card" data-cat="' + t.key + '" style="--c:' + t.color + '">' + topicArt(t.key, t.color) + '<div class="tp-txt"><em>' + catCount(catBy(t.key)) + ' 个机位</em><b>' + esc(i.name) + '</b><span>' + esc(i.desc) + '</span></div></button>';
+        var i = topicInfo(t.key), n = catCount(catBy(t.key));
+        return '<button class="tp-card" data-cat="' + t.key + '" style="--c:' + t.color + '">' + (topicCover(t.key) || topicArt(t.key, t.color)) + '<div class="tp-txt"><em>' + (n ? n + ' 个机位' : '等你来发第一个') + '</em><b>' + esc(i.name) + '</b><span>' + esc(i.desc) + '</span></div></button>';
       }).join('') + '</div>' +
-      '<div class="tp-more one"><button data-cat="wonder"><b>等奇观</b><span>环金穿月 · 一年只有几次</span><i>›</i></button></div></div>';
+      '<div class="tp-more one"><button data-cat="wonder" class="tp-wonder"><span class="moon" aria-hidden="true"></span><b>限定奇观</b><span>' + catCount(w) + ' 个 · 环金穿月一年只有几次</span><i>›</i></button></div></div>';
     bind($('vTopic'));
   }
 
@@ -299,6 +303,7 @@
     setInterval(function () { if (current === 'profile' && !document.hidden) { var el = document.querySelector('.login-state'); if (el && me()) el.innerHTML = '<span class="dot-ok"></span>已登录 · ' + Math.ceil(X.idleLeft() / 60000) + ' 分钟内无操作将自动退出'; } }, 30000);
     // 从分享二维码进来直接进地图，从邮件链接进来进“我的”，其余先看首页
     if (/spot=/.test(startHash)) { tab = 'map'; show('map'); }
+    else if (/type=recovery/.test(startHash)) show('profile', true);
     else if (/access_token=|error_description=/.test(startHash)) show('profile');
     else show('home');
   }

@@ -687,3 +687,59 @@ body.picking #pickBar { position: fixed; left: 12px; right: 12px; bottom: calc(1
 .pick-x { border: 0; background: none; color: var(--ink-2); font-size: 14px; padding: 8px; }
 .pick-ok { width: 52px; height: 52px; border-radius: 50%; border: 0; background: var(--ink); color: #fff; font-size: 24px; font-weight: 700; flex: none; }
 @media (min-width: 900px) { body.picking #pickBar { left: 24px; right: auto; width: 420px; } }
+
+/* ================= Arie 风格（9/30 晚）：白底、大照片、常规字重大标题、青柠绿胶囊按钮 ================= */
+:root {
+  --paper: #ffffff; --card: #ffffff; --ink: #0f0f0f; --ink-2: #6e6e6e; --line: #ececea;
+  --lime: #d7f36b; --skill: #0f0f0f; --classic: #0f0f0f; --wonder: #5b4bb7;
+  --shadow: 0 10px 30px rgba(15,15,15,.10);
+  font-family: "Manrope", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+}
+body, .view { background: #ffffff; }
+h1, h2, .hm-name, .pg-h h1, .slide-txt b { font-weight: 500; letter-spacing: -.01em; }
+.btn-main { background: var(--lime); color: #0f0f0f; border-radius: 999px; font-weight: 600; }
+.btn-ghost { border-radius: 999px; }
+.tab-plus i { background: var(--lime); color: #0f0f0f; border-radius: 999px; }
+.tabbar { background: rgba(255,255,255,.96); }
+.tabbar button.on { color: #0f0f0f; }
+.tabbar button.on svg .fill { fill: #0f0f0f; }
+.chips button { border-color: var(--line); background: #ffffff; }
+.chips button.on { background: #0f0f0f; color: #ffffff; }
+.search, .map-search { background: #ffffff; border-color: var(--line); border-radius: 999px; }
+/* 首页：更大的标题、满幅照片 */
+.hm-name { font-size: 24px; letter-spacing: .04em; }
+.hm-slogan { letter-spacing: .08em; }
+.slide { border-radius: 28px; }
+.slide-txt b { font-size: 28px; line-height: 1.2; }
+.slide-act .btn-main { background: var(--lime); color: #0f0f0f; padding: 13px 24px; }
+.rx.dark { background: rgba(255,255,255,.14); }
+.dots i.on { background: #0f0f0f; }
+/* 地图 */
+.mlabel { border-color: #0f0f0f !important; border-width: 1px; border-radius: 14px; }
+.near-h .link { color: #0f0f0f; text-decoration: underline; text-decoration-color: var(--lime); text-decoration-thickness: 3px; text-underline-offset: 3px; }
+.near-card { border-radius: 18px; }
+.badge.ok { background: #eef8cf; color: #3d5a07; }
+.rx-star.on { color: #0f0f0f; }
+/* 专题：6 张图卡 + 限定奇观 */
+.topic-page .tp-grid { grid-template-rows: repeat(3, 1fr); }
+.tp-card { border-radius: 22px; background: var(--c); }
+.tp-card img.t-art { object-fit: cover; }
+.tp-txt { background: linear-gradient(transparent, rgba(0,0,0,.62)); }
+.tp-txt em { color: var(--lime); opacity: 1; }
+.tp-wonder { display: flex; align-items: center; gap: 12px; }
+.tp-wonder b { flex: none; }
+.tp-wonder .moon { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 40% 40%, #ffffff, var(--lime)); flex: none; }
+.tp-more button { border-radius: 999px; }
+/* 机位卡片、我的、上传 */
+.sheet { border-radius: 26px 26px 0 0; }
+.tag, .tag.classic, .tag.skill, .tag.wonder { background: #0f0f0f; color: #ffffff; }
+.tag.soft { background: #f2f2ef; color: #0f0f0f; }
+.p-card { background: #f6f6f3; border-color: transparent; }
+.avatar { background: var(--lime); color: #0f0f0f; box-shadow: none; }
+.p-tabs button.on { background: #0f0f0f; }
+.tip { background: #f7fbe6; border-color: #e6f2b8; color: #4a4a4a; }
+.tag-chip { background: var(--lime); color: #0f0f0f; }
+.post-tags span { color: #0f0f0f; background: #f2f2ef; border-radius: 999px; padding: 2px 9px; }
+.pick-ok { background: var(--lime); color: #0f0f0f; }
+.arrival-primary { background: var(--lime); color: #0f0f0f; }
+.link { text-decoration-color: var(--lime); }
