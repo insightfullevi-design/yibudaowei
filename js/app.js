@@ -325,6 +325,7 @@
     );
     renderArrivalPrimary(s);
     bindSheet(function (act) {
+      if (act === 'legal') return openDisclaimer();
       if (act === 'copy') window.JWX && window.JWX.camera(s);
       if (act === 'share') window.JWX && window.JWX.share(s);
     });
@@ -344,12 +345,25 @@
     return rows.length ? '<div class="meta-card">' + rows.map(function (r) { return '<div><span>' + r[0] + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') + '</div>' : '';
   }
   // 名场面信息：来源作品、场景、台词、剧中地点 vs 实际拍摄地
+  // 免责声明与版权说明
+  function openDisclaimer() {
+    var mail = (window.JW_CONFIG || {}).CONTACT_EMAIL || '';
+    openSheet('<span class="tag skill">免责声明</span><h2>免责声明与版权说明</h2><div class="legal">' +
+      '<p><b>1. 只标地点，不搬作品。</b>“影视同款”“明星同款”“书本同款”“钞能力同款”只标注现实中可以去拍的地点和角度。本产品不收录、不存储影视剧照、明星肖像、教材插图、人民币图案等受版权或法律保护的图像；页面上的参考图均为用户本人拍摄的实景照片或示意图。</p>' +
+      '<p><b>2. 名称仅作说明。</b>页面中出现的影视作品、书籍、人物、地标、品牌名称，仅用于说明拍摄地点的来源，相关著作权、商标权、肖像权等归原权利人所有。本产品与这些作品、人物及其权利人没有合作、授权或关联关系。</p>' +
+      '<p><b>3. 用户发布的内容。</b>照片、帖子和路书由发布者提供。发布者应保证照片为本人拍摄或已获授权，不侵犯他人的著作权、肖像权和隐私；发布即表示同意本产品在站内展示这些内容。内容观点不代表本产品立场。</p>' +
+      '<p><b>4. 肖像与隐私。</b>请勿上传含他人清晰正脸的照片做封面，拍摄时尊重他人和场所的意愿。</p>' +
+      '<p><b>5. 出行安全。</b>只收录可以合法进入的地点。导航、路书、光线和奇观时间均为参考和推算，现场情况可能变化；请遵守交通规则和场所规定，注意人身安全。因前往机位产生的风险和损失，本产品不承担责任。</p>' +
+      '<p><b>6. 地图服务。</b>地图、地点搜索和步行路线由百度地图开放平台提供。</p>' +
+      '<p><b>7. 侵权投诉。</b>如果你认为某条内容侵犯了你的权利，请' + (mail ? '发邮件到 <a href="mailto:' + esc(mail) + '?subject=' + encodeURIComponent('移步到位 内容投诉') + '">' + esc(mail) + '</a>，' : '联系我们，') + '写明机位名称和权利证明，我们核实后会尽快下架。</p>' +
+      '</div>');
+  }
   function sceneHtml(s) {
     var r = s.scene; if (!r) return '';
     return '<div class="scene"><div class="scene-src">' + esc(r.source || '') + (r.work ? ' ·《' + esc(r.work) + '》' : '') + '</div>' +
       (r.moment ? '<div class="scene-moment">' + esc(r.moment) + '</div>' : '') +
       (r.line ? '<div class="scene-line">“' + esc(r.line) + '”</div>' : '') +
-      (r.storyPlace || r.realPlace ? '<div class="scene-place"><span>剧中</span>' + esc(r.storyPlace || '—') + '<span>实际</span>' + esc(r.realPlace || '—') + '</div>' : '') + '</div>';
+      (r.storyPlace || r.realPlace ? '<div class="scene-place"><span>剧中</span>' + esc(r.storyPlace || '—') + '<span>实际</span>' + esc(r.realPlace || '—') + '</div>' : '') + '<p class="scene-note">作品名称仅用于说明拍摄地点，版权归原权利人所有，本产品与其无关联。<button class="link" data-act="legal">免责声明</button></p></div>';
   }
   function bindSheet(fn) {
     $('sheetBody').querySelectorAll('[data-act]').forEach(function (b) {
@@ -785,7 +799,7 @@
 
   function addSpot(s) { if (!spotById[s.id]) DATA.spots.push(s); spotById[s.id] = s; }
   function removeSpot(id) { DATA.spots = DATA.spots.filter(function (s) { return s.id !== id; }); window.JW_DATA.spots = DATA.spots; delete spotById[id]; closeSheet(); drawMarkers(); }
-  window.JW = { get map() { return map; }, spotById: spotById, addSpot: addSpot, removeSpot: removeSpot, drawMarkers: drawMarkers, openSheet: openSheet, closeSheet: closeSheet,
+  window.JW = { openDisclaimer: openDisclaimer, get map() { return map; }, spotById: spotById, addSpot: addSpot, removeSpot: removeSpot, drawMarkers: drawMarkers, openSheet: openSheet, closeSheet: closeSheet,
     bindSheet: bindSheet, toast: toast, esc: esc, placeholder: placeholder, lightCheck: lightCheck, setFilter: setFilter, COLORS: COLORS, TYPE_NAME: TYPE_NAME,
     clearSel: clearSel, sel: function (h) { sel.push(h); }, markerSvg: markerSvg, hm: hm, md: md, planRoute: planRoute, predictWonder: predictWonder, lightCheck: lightCheck, openSpot: openSpot, openRoute: openRoute, openWonder: openWonder, DEMOS: DEMOS,
     locateMe: function (o, cb) { locateMe(o, cb); }, renderLabels: labelsSoon };

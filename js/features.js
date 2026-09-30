@@ -134,7 +134,8 @@
       '<div class="tag-sug" id="upSug"></div><div id="upWonder"></div></div>' +
       '<h3>4 · 路书（可选）：最后一段怎么走</h3><p class="tip">从最近的地铁口或路口开始，每个转弯拍一张照片、写一句话。定位不准的地方，就靠它把人带到位。</p>' +
       '<div id="upSteps"></div><button class="btn-ghost wide" data-act="addstep">＋ 再加一步</button>' +
-      '<p class="muted">发布规则：只收录能合法进入的地点；不要用含他人正脸的照片做封面。</p>' +
+      '<p class="muted">发布规则：只收录能合法进入的地点；不要用含他人正脸的照片做封面；不要上传剧照、明星写真、课本插图、人民币图案等他人作品。</p>' +
+      '<label class="agree"><input type="checkbox" id="upAgree"><span>我确认照片是我本人拍摄（或已获授权），并同意<button class="link" data-act="legal">《免责声明与版权说明》</button></span></label>' +
       '<div class="btn-row publish-row"><button class="btn-ghost" data-act="draft">存草稿</button><button class="btn-main" data-act="save">发布</button></div>'
     );
     document.getElementById('sheet').classList.add('tall');
@@ -153,6 +154,7 @@
       if (act === 'loaddraft') loadDraft();
       if (act === 'dropdraft') { try { localStorage.removeItem(draftKey()); } catch (e) {} JW.toast('草稿已丢弃'); openUpload(); }
       if (act === 'save') publish();
+      if (act === 'legal') JW.openDisclaimer();
     });
   }
   // 标签
@@ -414,6 +416,7 @@
     if (!up.photo) return JW.toast('先从相册选一张原图');
     if (!up.pos) return JW.toast('还不知道站位：用你现在的位置，或在地图上点选');
     if (!name) return JW.toast('写个标题（机位名称）');
+    if (!$('upAgree').checked) { JW.toast('请先勾选：照片是本人拍摄，并同意免责声明'); $('upAgree').parentNode.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
     if (CLOUD && !Cloud.me()) { JW.toast('发布前请先登录'); return openAccount('login', '登录后发布的机位所有人都能看到，并署上你的名字'); }
     var body = $('upBody').value.trim(), e = up.exif || {};
     var pending = $('upTagIn').value.trim(); if (pending) { addTag(pending); $('upTagIn').value = ''; }

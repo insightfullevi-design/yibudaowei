@@ -228,7 +228,7 @@
     if (!u) {
       v.innerHTML = '<div class="fit gate">' + logo(56) + '<h1>登录后开始你的巡礼</h1><p class="muted">你的发布、点赞和收藏都会保存在账号里，换手机也不丢。</p>' +
         '<div class="btn-row"><button class="btn-main" data-go="login">登录</button><button class="btn-ghost" data-go="signup">注册</button></div>' +
-        '<button class="link" data-go="shareapp">分享移步到位给朋友</button></div>';
+        '<button class="link" data-go="shareapp">分享移步到位给朋友</button><button class="link" data-go="disclaimer">免责声明与版权说明</button></div>';
       return bind(v);
     }
     var pub = X.store.spots.filter(function (s) { return s.ownerId === u.id; });
@@ -246,7 +246,7 @@
       }).join('') + '</nav>' +
       '<div class="p-list">' + (cur.length ? '<div class="grid2">' + cur.map(function (s) { return tile(s, profTab === 'pub' ? (s.checkins || 0) + ' 次打卡' : s.area, profTab === 'pub' && !!s.rowId); }).join('') + '</div>'
         : '<div class="empty"><b>' + empty[0] + '</b><p>' + empty[1] + '</p><button class="btn-ghost" data-go="' + empty[3] + '">' + empty[2] + '</button></div>') + '</div>' +
-      '<div class="p-foot"><button class="link" data-go="shareapp">分享移步到位</button></div></div>';
+      '<div class="p-foot"><button class="link" data-go="shareapp">分享移步到位</button><button class="link" data-go="disclaimer">免责声明与版权说明</button></div></div>';
     v.querySelectorAll('[data-ptab]').forEach(function (b) { b.onclick = function () { profTab = b.getAttribute('data-ptab'); renderProfile(); }; });
     Cloud.profile(u.id).then(function (p) { var n = $('pName'); if (n && p && p.nickname) n.textContent = p.nickname; }).catch(function () {});
     bind(v);
@@ -322,6 +322,7 @@
     if (what === 'login' || what === 'signup') { var from = current; X.afterLoginDo(function () { show(from === 'upload' ? 'upload' : 'profile'); }); return X.account(what); }
     if (what === 'upload') { tab = 'upload'; if (cloudOn() && !me()) return show('upload'); return show('upload'); }
     if (what === 'shareapp') return shareApp();
+    if (what === 'disclaimer') return JW.openDisclaimer();
     if (what === 'editprofile') return editProfile();
     if (what === 'logout') { Cloud.signOut(); X.refreshAccountBtn(); X.loadCloud(); show('profile'); JW.toast('已退出登录'); }
   }

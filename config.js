@@ -12,6 +12,8 @@ window.JW_CONFIG = {
   SUPABASE_URL: 'https://aceuwtcthzawmumbohfd.supabase.co',
   SUPABASE_KEY: 'sb_publishable_FFeIAlsz6Ewr_aIM7w_GEw_-GPDsS5-',
   // 网页的正式网址：确认邮件、重置密码邮件、分享二维码都指向这里
+  // 侵权投诉、内容问题的联系邮箱（显示在免责声明里）
+  CONTACT_EMAIL: '1315024279@qq.com',
   SITE_URL: 'https://insightfullevi-design.github.io/yibudaowei/',
 
   // 打开网页时地图的中心（北外滩和陆家嘴之间）和缩放级别，一般不用改
