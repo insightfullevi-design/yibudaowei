@@ -119,7 +119,11 @@
     return fresh().then(function () { return req('/rest/v1/spots', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ user_id: me().id, data: data }) }); })
       .then(function (r) { return r[0]; });
   }
-  function deleteSpot(id) { return fresh().then(function () { return req('/rest/v1/spots?id=eq.' + id, { method: 'DELETE' }); }); }
+  // 删除自己发布的机位；返回被删掉的行，删不掉（没有权限）时报错
+  function deleteSpot(id) {
+    return fresh().then(function () { return req('/rest/v1/spots?id=eq.' + id + '&user_id=eq.' + me().id, { method: 'DELETE', headers: { Prefer: 'return=representation' } }); })
+      .then(function (r) { if (!r || !r.length) throw new Error('没有删掉：只能删除自己发布的机位'); return r; });
+  }
   function listCheckins() { return req('/rest/v1/checkins?select=id,user_id,spot_id,data,created_at&order=created_at.asc&limit=1000', { auth: false }); }
   function addCheckin(spotId, data) {
     return fresh().then(function () { return req('/rest/v1/checkins', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ user_id: me().id, spot_id: spotId, data: data }) }); })

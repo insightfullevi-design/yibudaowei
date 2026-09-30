@@ -189,9 +189,23 @@
   }
 
   // ---------------- 我的：登录状态、我的发布 / 点赞 / 收藏 ----------------
-  function tile(s, extra) {
+  function tile(s, extra, canDelete) {
     return '<div class="tile"><button class="tile-img" data-spot="' + esc(s.id) + '">' + coverHtml(s) + '</button><div class="tile-t"><b>' + esc(s.name) + '</b><span>' + esc(extra || s.area || '') + '</span></div>' +
-      '<button class="tile-share" data-share="' + esc(s.id) + '">分享</button></div>';
+      '<button class="tile-share" data-share="' + esc(s.id) + '">分享</button>' + (canDelete ? '<button class="tile-del" data-del="' + esc(s.id) + '">删除</button>' : '') + '</div>';
+  }
+  // 删除自己发布的机位：先在卡片里确认，再从云端删掉
+  function confirmDelete(id) {
+    var s = JW.spotById[id]; if (!s) return;
+    JW.openSheet('<span class="tag">删除机位</span><h2>删除“' + esc(s.name) + '”？</h2><p class="muted">删除后地图上和别人的收藏里都看不到它了，这一步不能撤销。</p>' +
+      '<div class="btn-row"><button class="btn-ghost" data-act="no">取消</button><button class="btn-danger" data-act="yes">确认删除</button></div>');
+    JW.bindSheet(function (act) {
+      if (act === 'no') return JW.closeSheet();
+      var b = document.querySelector('#sheetBody [data-act=yes]'); if (b) { b.disabled = true; b.textContent = '正在删除…'; }
+      Cloud.deleteSpot(s.rowId).then(function () {
+        X.store.spots = X.store.spots.filter(function (x) { return x.id !== id; });
+        JW.removeSpot(id); JW.toast('已删除'); renderProfile();
+      }).catch(function (e) { JW.toast(e.message, 4000); if (b) { b.disabled = false; b.textContent = '确认删除'; } });
+    });
   }
   function renderProfile() {
     var v = $('vProfile');
@@ -216,7 +230,7 @@
       '<nav class="p-tabs">' + [['pub', '我的发布', pub.length], ['like', '我的点赞', liked.length], ['fav', '我的收藏', favd.length]].map(function (t) {
         return '<button data-ptab="' + t[0] + '" class="' + (profTab === t[0] ? 'on' : '') + '"><b>' + t[2] + '</b><span>' + t[1] + '</span></button>';
       }).join('') + '</nav>' +
-      '<div class="p-list">' + (cur.length ? '<div class="grid2">' + cur.map(function (s) { return tile(s, profTab === 'pub' ? (s.checkins || 0) + ' 次打卡' : s.area); }).join('') + '</div>'
+      '<div class="p-list">' + (cur.length ? '<div class="grid2">' + cur.map(function (s) { return tile(s, profTab === 'pub' ? (s.checkins || 0) + ' 次打卡' : s.area, profTab === 'pub' && !!s.rowId); }).join('') + '</div>'
         : '<div class="empty"><b>' + empty[0] + '</b><p>' + empty[1] + '</p><button class="btn-ghost" data-go="' + empty[3] + '">' + empty[2] + '</button></div>') + '</div>' +
       '<div class="p-foot"><button class="link" data-go="shareapp">分享移步到位</button></div></div>';
     v.querySelectorAll('[data-ptab]').forEach(function (b) { b.onclick = function () { profTab = b.getAttribute('data-ptab'); renderProfile(); }; });
@@ -278,6 +292,7 @@
     root.querySelectorAll('[data-cat]').forEach(function (b) { b.onclick = function () { openList('cat', b.getAttribute('data-cat')); }; });
     root.querySelectorAll('[data-spot]').forEach(function (b) { b.onclick = function () { openItem(b.getAttribute('data-spot')); }; });
     root.querySelectorAll('[data-go-spot]').forEach(function (b) { b.onclick = function (e) { if (e.target.closest('[data-rx]')) return; e.stopPropagation(); goSpot(b.getAttribute('data-go-spot')); }; });
+    root.querySelectorAll('[data-del]').forEach(function (b) { b.onclick = function (e) { e.stopPropagation(); confirmDelete(b.getAttribute('data-del')); }; });
     root.querySelectorAll('[data-share]').forEach(function (b) { b.onclick = function () { var s = JW.spotById[b.getAttribute('data-share')]; if (s) X.share(s); }; });
     root.querySelectorAll('[data-search]').forEach(function (f) { f.onsubmit = function (e) { e.preventDefault(); var i = f.querySelector('input'); search(i.value); i.blur(); }; });
   }

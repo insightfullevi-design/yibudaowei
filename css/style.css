@@ -762,3 +762,5 @@ h1, h2, .hm-name, .pg-h h1, .slide-txt b { font-weight: 500; letter-spacing: -.0
 .tp-card.wide { grid-column: 1 / -1; }
 .tp-txt em { font-size: 12px; }
 .tp-txt b { font-size: 20px; }
+.tile-del { position: absolute; left: 8px; top: 8px; border: 0; border-radius: 999px; background: rgba(255,255,255,.92); color: #c0392b; font-size: 12px; font-weight: 600; padding: 5px 10px; }
+.btn-danger { border: 0; background: #d64530; color: #fff; border-radius: 999px; padding: 12px 18px; font-size: 15px; font-weight: 600; flex: 1 1 auto; }

@@ -707,7 +707,8 @@
   M.load(CFG.BAIDU_AK, 8000, start);
 
   function addSpot(s) { if (!spotById[s.id]) DATA.spots.push(s); spotById[s.id] = s; }
-  window.JW = { get map() { return map; }, spotById: spotById, addSpot: addSpot, drawMarkers: drawMarkers, openSheet: openSheet, closeSheet: closeSheet,
+  function removeSpot(id) { DATA.spots = DATA.spots.filter(function (s) { return s.id !== id; }); window.JW_DATA.spots = DATA.spots; delete spotById[id]; closeSheet(); drawMarkers(); }
+  window.JW = { get map() { return map; }, spotById: spotById, addSpot: addSpot, removeSpot: removeSpot, drawMarkers: drawMarkers, openSheet: openSheet, closeSheet: closeSheet,
     bindSheet: bindSheet, toast: toast, esc: esc, placeholder: placeholder, lightCheck: lightCheck, setFilter: setFilter, COLORS: COLORS, TYPE_NAME: TYPE_NAME,
     clearSel: clearSel, sel: function (h) { sel.push(h); }, markerSvg: markerSvg, hm: hm, md: md, planRoute: planRoute, predictWonder: predictWonder, lightCheck: lightCheck, openSpot: openSpot, openRoute: openRoute, openWonder: openWonder, DEMOS: DEMOS,
     locateMe: function (o, cb) { locateMe(o, cb); }, renderLabels: labelsSoon };
