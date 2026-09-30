@@ -69,14 +69,17 @@
       // 进地图就定位：放蓝点；附近 20 公里内有机位才把地图挪过去
       JW.locateMe({ quiet: true, fly: false }, function (p) {
         if (done) return; done = true; clearTimeout(t);
-        locFail = !p; if (p) { lastPos = p; if (nearbyNow(p, 1)[0].d < 20000) JW.map.flyTo(p[0], p[1], 15); }
+        locFail = !p; if (p) lastPos = p;
+        // 地图中心：附近 20 公里内有机位就以你为中心，否则以陆家嘴为例；往下挪一点，给底部“我身边”留位置
+        var c = p && nearbyNow(p, 1)[0].d < 20000 ? p : FALLBACK;
+        JW.map.center(c[0], c[1] - 0.0012, 15);
         renderNear();
       });
       return;
     }
     var p = lastPos || FALLBACK, list = nearbyNow(p, 12), far = list.length && list[0].d > 20000;
     list = list.sort(function (a, b) { return far ? a.d - b.d : (RANK[a.cls] - RANK[b.cls]) || (a.d - b.d); });
-    var label = locFail ? '没拿到定位，先以上海陆家嘴为例' : far ? '你附近 20 公里内还没有机位，下面是离你最近的' : '按“现在能不能拍”和距离排序';
+    var label = locFail ? '未获取定位 · 以陆家嘴为例' : far ? '附近 20 公里内暂无 · 离你最近的' : '现在能拍的排前面';
     box.innerHTML = '<div class="near-h"><b>我身边</b><span>' + label + '</span><button class="link" data-near="relocate">重新定位</button></div>' +
       '<div class="near-list">' + (far ? '<button class="near-empty" data-near="upload"><b>这里还没有机位</b><span>成为第一个上传的人 ＋</span></button>' : '') +
       list.map(function (x) {
@@ -87,7 +90,7 @@
     box.querySelectorAll('[data-near]').forEach(function (b) { b.onclick = function () {
       if (b.getAttribute('data-near') === 'upload') return go('upload');
       b.textContent = '定位中…';
-      JW.locateMe({ zoom: 15 }, function (p) { locFail = !p; if (p) lastPos = p; renderNear(); });
+      JW.locateMe({ fly: false }, function (p) { locFail = !p; if (p) { lastPos = p; JW.map.center(p[0], p[1] - 0.0012, 15); } renderNear(); });
     }; });
   }
 

@@ -98,6 +98,7 @@
     var c = [lng - off[0] * mpp / (111320 * Math.cos(lat * Math.PI / 180)), lat - off[1] * mpp / 110540];
     this.map.centerAndZoom(new BMapGL.Point(c[0], c[1]), z);
   };
+  Baidu.prototype.center = function (lng, lat, zoom) { this.map.centerAndZoom(new BMapGL.Point(lng, lat), zoom || this.map.getZoom()); };
   Baidu.prototype.fit = function (pts) { this.map.setViewport(pts.map(P), { margins: M.margins() }); };
   Baidu.prototype.locate = function (cb) {
     var geo = new BMapGL.Geolocation();
@@ -200,6 +201,7 @@
     var s = this.scale(), off = M.lift();
     this.cx = lng - off[0] / s; this.cy = lat - off[1] / (s * 1.17); this.render();
   };
+  Offline.prototype.center = function (lng, lat, zoom) { if (zoom) this.z = zoom; this.cx = lng; this.cy = lat; this.render(); };
   Offline.prototype.fit = function (pts) {
     var xs = pts.map(function (p) { return p[0]; }), ys = pts.map(function (p) { return p[1]; }), m = M.margins();
     var w = Math.max(100, this.el.clientWidth - m[1] - m[3]), h = Math.max(100, this.el.clientHeight - m[0] - m[2]);

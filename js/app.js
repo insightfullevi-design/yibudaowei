@@ -156,7 +156,7 @@
     var layer = $('mapLabels'); if (!layer || !map || !map.toPixel) return;
     if (!document.body.classList.contains('on-map')) { layer.innerHTML = ''; return; }
     var W = window.innerWidth, H = window.innerHeight, mobile = W < 900;
-    var top = mobile ? 108 : 118, bottom = H - (mobile ? 190 : 110), right = mobile ? W : W - 430;
+    var top = mobile ? 108 : 166, bottom = H - (mobile ? 190 : 110), right = mobile ? W : W - 430;
     var LW = 148, LH = 46, placed = [], html = '', lines = '';
     // 已经被占的区域：机位点本身
     var pts = DATA.spots.filter(visible).map(function (s) { var p = map.toPixel(s.lng, s.lat); return { s: s, x: p[0], y: p[1] }; })
