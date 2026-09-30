@@ -98,7 +98,7 @@
     var c = [lng - off[0] * mpp / (111320 * Math.cos(lat * Math.PI / 180)), lat - off[1] * mpp / 110540];
     this.map.centerAndZoom(new BMapGL.Point(c[0], c[1]), z);
   };
-  Baidu.prototype.center = function (lng, lat, zoom) { this.map.centerAndZoom(new BMapGL.Point(lng, lat), zoom || this.map.getZoom()); };
+  Baidu.prototype.center = function (lng, lat, zoom) { this.map.centerAndZoom(new BMapGL.Point(lng, lat), zoom || this.map.getZoom(), { noAnimation: true }); };
   Baidu.prototype.fit = function (pts) { this.map.setViewport(pts.map(P), { margins: M.margins() }); };
   Baidu.prototype.locate = function (cb) {
     var geo = new BMapGL.Geolocation();
