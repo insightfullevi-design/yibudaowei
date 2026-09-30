@@ -256,6 +256,7 @@
     document.body.classList.add('sheet-open'); $('sheetBody').scrollTop = 0;
   }
   function closeSheet() {
+    if (typeof stopNav === 'function' && NAV) stopNav(false);
     $('sheet').classList.remove('open', 'tall'); $('sheet').setAttribute('aria-hidden', 'true');
     $('sheetPrimary').innerHTML = ''; document.body.classList.remove('sheet-open'); clearSel();
     arrival = { spotId: null, routePlanned: false, routeFailed: false, distanceMeters: null, loading: false };
@@ -270,7 +271,7 @@
     footer.innerHTML = '<button class="btn-main arrival-primary" id="arrivalPrimary"' + (arrival.loading ? ' disabled' : '') + '>' +
       (arrival.loading ? '正在规划路线…' : esc(phase.label)) + '</button><div class="arrival-hint">' + esc(arrival.loading ? '正在获取你的位置' : phase.hint) + '</div>';
     $('arrivalPrimary').addEventListener('click', function () {
-      if (phase.phase === 'plan') navigate(s);
+      if (phase.phase === 'plan') startWalkNav(s);
       else openGuide(s);
     });
   }
@@ -374,6 +375,72 @@
       if (p && M.distance(p, [s.lng, s.lat]) < 30000) go(p, '你的位置');
       else { toast('没拿到附近的定位，用示例起点演示'); go(demo.p, demo.name); }
     });
+  }
+
+  // ---------------- 步行导航：百度步行路线 + 实时定位，到附近后自动进入路书 ----------------
+  var NAV = null, ARRIVE_M = 50;
+  function setUserMarker(p) {
+    if (userMarker) map.remove(userMarker);
+    userMarker = map.addMarker(p[0], p[1], '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="#3b6fb6" fill-opacity=".22"/><circle cx="16" cy="16" r="7" fill="#3b6fb6" stroke="#fff" stroke-width="3"/></svg>', 32, null);
+  }
+  function fmtM(m) { return m < 1000 ? Math.round(m) + ' 米' : (m / 1000).toFixed(1) + ' 公里'; }
+  function baiduAppLink(s, from) {
+    return 'https://api.map.baidu.com/direction?origin=latlng:' + from[1] + ',' + from[0] + '|name:' + encodeURIComponent('我的位置') +
+      '&destination=latlng:' + s.lat + ',' + s.lng + '|name:' + encodeURIComponent(s.name) + '&mode=walking&coord_type=bd09ll&output=html&src=webapp.yibudaowei.navi';
+  }
+  function startWalkNav(s) {
+    arrival.loading = true; renderArrivalPrimary(s);
+    var demo = DEMO_START[s.area] || { name: '示例起点', p: M.offset(s.lng, s.lat, 200, 600) };
+    map.locate(function (p) {
+      if (arrival.spotId !== s.id) return;
+      var live = !!(p && M.distance(p, [s.lng, s.lat]) < 30000), from = live ? p : demo.p;
+      if (!live) toast(p ? '你离这个机位超过 30 公里，先用示例起点演示导航' : '没拿到定位，先用示例起点演示导航', 3500);
+      map.walk(from, [s.lng, s.lat], function (r) {
+        arrival.loading = false;
+        if (!r) { arrival.routeFailed = true; renderArrivalPrimary(s); toast('步行路线规划失败，可以直接用路书找站位', 3500); return; }
+        arrival.routePlanned = true; arrival.distanceMeters = M.distance(from, [s.lng, s.lat]); renderArrivalPrimary(s);
+        NAV = { s: s, live: live, from: from, r: r, step: 0, watch: null, arrived: false };
+        setUserMarker(from);
+        $('sheet').classList.add('lowered'); document.body.classList.add('navigating');
+        renderNav(M.distance(from, [s.lng, s.lat]));
+        if (live && navigator.geolocation) {
+          NAV.watch = navigator.geolocation.watchPosition(function (pos) {
+            if (!NAV) return;
+            var q = M.wgs2bd(pos.coords.longitude, pos.coords.latitude); setUserMarker(q);
+            // 走到下一步的拐点附近，就切到下一条提示
+            var st = NAV.r.steps;
+            while (NAV.step < st.length - 1 && st[NAV.step + 1].pos && M.distance(q, st[NAV.step + 1].pos) < 20) NAV.step++;
+            var left = M.distance(q, [s.lng, s.lat]);
+            renderNav(left);
+            if (left <= ARRIVE_M && !NAV.arrived) arriveNav();
+          }, function () {}, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+        }
+      });
+    });
+  }
+  function renderNav(left) {
+    var bar = $('navBar'); if (!bar || !NAV) return;
+    var st = NAV.r.steps || [], cur = st[NAV.step] ? st[NAV.step].text : '沿地图上的路线步行';
+    var mins = Math.max(1, Math.round(left / 70));
+    bar.innerHTML = '<div class="nav-top"><span class="nav-tag">' + (NAV.live ? '步行导航中' : '演示导航') + '</span><span class="nav-left">距机位 ' + fmtM(left) + ' · 约 ' + mins + ' 分钟</span></div>' +
+      '<div class="nav-step">' + esc(cur) + '</div>' +
+      (st.length > 1 ? '<div class="nav-next">共 ' + st.length + ' 步 · 第 ' + (NAV.step + 1) + ' 步' + (st[NAV.step + 1] ? ' · 下一步：' + esc(st[NAV.step + 1].text) : '') + '</div>' : '') +
+      '<div class="nav-btns"><button class="btn-ghost" id="navExit">退出</button><a class="btn-ghost" id="navApp" href="' + esc(baiduAppLink(NAV.s, NAV.from)) + '" target="_blank" rel="noopener">用百度地图App</a><button class="btn-main" id="navArrive">我已到附近</button></div>';
+    $('navExit').onclick = function () { stopNav(true); };
+    $('navArrive').onclick = arriveNav;
+  }
+  function stopNav(restoreSheet) {
+    if (NAV && NAV.watch != null && navigator.geolocation) navigator.geolocation.clearWatch(NAV.watch);
+    NAV = null; document.body.classList.remove('navigating'); var bar = $('navBar'); if (bar) bar.innerHTML = '';
+    if (restoreSheet) $('sheet').classList.remove('lowered');
+  }
+  function arriveNav() {
+    if (!NAV) return; var s = NAV.s; NAV.arrived = true;
+    stopNav(false); $('sheet').classList.remove('lowered');
+    arrival.distanceMeters = 0; renderArrivalPrimary(s);
+    var hasGuide = !!(s.guide && s.guide.length);
+    toast(hasGuide ? '已到附近，按路书找准站位' : '已到附近，这个机位没有路书，直接对准朝向开拍', 3000);
+    openGuide(s);
   }
 
   // ---------------- 路书模式（全屏） ----------------

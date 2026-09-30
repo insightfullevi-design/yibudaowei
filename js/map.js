@@ -116,8 +116,12 @@
       onSearchComplete: function (res) {
         try {
           if (self._walk.getStatus() !== BMAP_STATUS_SUCCESS) return cb(null);
-          var plan = res.getPlan(0);
-          cb({ distance: plan.getDistance(true), duration: plan.getDuration(true) });
+          var plan = res.getPlan(0), steps = [];
+          try {
+            var route = plan.getRoute(0), n = route.getNumSteps();
+            for (var i = 0; i < n; i++) { var st = route.getStep(i), sp = st.getPosition(); steps.push({ text: String(st.getDescription(false) || '').replace(/<[^>]+>/g, ''), pos: sp ? [sp.lng, sp.lat] : null }); }
+          } catch (e) {}
+          cb({ distance: plan.getDistance(true), duration: plan.getDuration(true), meters: plan.getDistance(false), steps: steps });
         } catch (e) { cb(null); }
       }
     });
@@ -215,7 +219,7 @@
   };
   Offline.prototype.walk = function (from, to, cb) {
     this.clearWalk(); this._walk = this.line([from, to], '#3b6fb6', 4, true);
-    var d = M.distance(from, to); cb({ distance: (d / 1000).toFixed(1) + '公里（直线）', duration: Math.round(d / 70) + '分钟（估算）' });
+    var d = M.distance(from, to); cb({ distance: (d / 1000).toFixed(1) + '公里（直线）', duration: Math.round(d / 70) + '分钟（估算）', meters: d, steps: [{ text: '沿直线方向步行约 ' + Math.round(d) + ' 米（离线预览）', pos: from }] });
   };
   Offline.prototype.clearWalk = function () { if (this._walk) { this.remove(this._walk); this._walk = null; } };
   Offline.prototype.setTilt = function () {};
