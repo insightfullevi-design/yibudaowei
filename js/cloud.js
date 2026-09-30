@@ -75,6 +75,11 @@
       .then(function (r) { saveSession(toSession(r)); return session; });
   }
   function signOut() { var s = session; saveSession(null); if (s) fetch(BASE + '/auth/v1/logout', { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + s.access_token } }).catch(function () {}); }
+  // 这个邮箱注册过吗？需要在 Supabase 里建好 email_registered 函数；没建时返回 null（不影响找回密码）
+  function emailRegistered(email) {
+    return fetch(BASE + '/rest/v1/rpc/email_registered', { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_email: email }) })
+      .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+  }
   function resetPassword(email) {
     return req('/auth/v1/recover?redirect_to=' + encodeURIComponent(SITE), { method: 'POST', auth: false, body: JSON.stringify({ email: email }) });
   }
@@ -141,7 +146,7 @@
   loadSession();
   window.Cloud = {
     enabled: enabled, site: SITE, get session() { return session; }, me: me, onChange: function (f) { listeners.push(f); },
-    fresh: fresh, signUp: signUp, signIn: signIn, signOut: signOut, resetPassword: resetPassword, updatePassword: updatePassword, resendConfirm: resendConfirm,
+    fresh: fresh, signUp: signUp, signIn: signIn, signOut: signOut, resetPassword: resetPassword, emailRegistered: emailRegistered, updatePassword: updatePassword, resendConfirm: resendConfirm,
     consumeHash: consumeHash, profile: profile, saveProfile: saveProfile, profiles: profiles,
     listSpots: listSpots, addSpot: addSpot, deleteSpot: deleteSpot, listCheckins: listCheckins, addCheckin: addCheckin, uploadPhoto: uploadPhoto,
     listReactions: listReactions, addReaction: addReaction, delReaction: delReaction

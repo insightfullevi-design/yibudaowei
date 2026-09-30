@@ -628,12 +628,16 @@
       if (act === 'forgot') {
         if (!em) return msg('请填写邮箱', 'wait');
         busy(act, true);
-        Cloud.resetPassword(em).then(function () {
-          msg('重置邮件已发到 ' + em + '。请在这台手机上打开邮件里的链接，会回到这里让你设置新密码。几分钟没收到的话，看看垃圾邮件箱。', 'ok');
+        Cloud.emailRegistered(em).then(function (reg) {
+          if (reg === false) { busy(act, false); msg('这个邮箱还没有注册过。检查一下有没有输错，或者点上面的“注册”。', 'bad'); return; }
+          return sendReset();
+        });
+        function sendReset() { return Cloud.resetPassword(em).then(function () {
+          msg('重置邮件已发到 ' + em + '。请在这台手机上打开邮件里的链接，会回到这里让你设置新密码。发件人是 1315024279@qq.com，几分钟没收到的话，在收件箱和垃圾邮件里搜一下这个地址。', 'ok');
           // 60 秒后可以重新发送，按钮不再一直是灰的
           var b = document.querySelector('#sheetBody [data-act=forgot]'), left = 60;
           var tm = setInterval(function () { left--; if (!b || !document.body.contains(b)) return clearInterval(tm); b.textContent = left > 0 ? '重新发送（' + left + ' 秒后）' : '重新发送重置邮件'; if (left <= 0) { clearInterval(tm); busy(act, false); } }, 1000);
-        }).catch(function (e) { busy(act, false); msg(e.message, 'bad'); });
+        }).catch(function (e) { busy(act, false); msg(e.message, 'bad'); }); }
       }
     });
   }
