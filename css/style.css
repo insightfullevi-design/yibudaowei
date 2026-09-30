@@ -818,7 +818,7 @@ body.picking #pickBar { display: grid; gap: 8px; align-items: stretch; padding: 
 .l-grp{margin:14px 4px 6px;font-size:15px;display:flex;align-items:center;gap:8px}
 .l-grp em{font-style:normal;font-size:12px;color:#fff;background:#6a5acd;border-radius:999px;padding:1px 8px}
 
-/* 免责声明 */
+/* 版权与使用说明 */
 .legal p{font-size:14px;line-height:1.7;margin:0 0 10px;color:#333}
 .legal b{color:#0f0f0f}
 .legal a{color:#4b3fb5}
@@ -827,3 +827,4 @@ body.picking #pickBar { display: grid; gap: 8px; align-items: stretch; padding: 
 .agree .link,.scene-note .link{padding:0;font-size:inherit}
 .scene-note{font-size:12px;color:#888;margin:8px 0 0}
 .p-foot{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.report-row{margin:10px 0 0;font-size:12px;color:#888}.report-row .link{font-size:12px;color:#888;padding:0}

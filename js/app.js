@@ -300,7 +300,7 @@
       '<div class="cover">' + coverHtml(s) + '</div>' +
       (s.post ? '<div class="post">' + esc(s.post).replace(/\n/g, '<br>') + '</div>' : '<p>' + esc(s.summary) + '</p>') +
       (s.tags && s.tags.length ? '<div class="post-tags">' + s.tags.map(function (t) { return '<span>#' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
-      wonderHtml(s) + photoMetaHtml(s) + sceneHtml(s) +
+      wonderHtml(s) + photoMetaHtml(s) + sceneHtml(s) + reportHtml(s) +
       '<div class="cond ' + lc.cls + '"><span class="dot"></span><div>' + esc(lc.text) + (s.lightNote ? '<br><span class="muted">' + esc(s.lightNote) + '</span>' : '') + '</div></div>' +
       '<div class="btn-row">' +
         '<button class="btn-ghost" data-act="copy">预览拍法</button><button class="btn-ghost" data-act="share">分享</button>' +
@@ -320,12 +320,13 @@
       (s.crowd ? '<div class="kv"><span>人流</span><span>' + esc(s.crowd) + '</span></div>' : '') +
       '<h3>状态</h3><div class="kv"><span>最近确认</span><span>' + esc(s.status.date || '暂无') + (s.status.note ? ' · ' + esc(s.status.note) : '') + '</span></div>' +
       '<div class="kv"><span>打卡</span><span>' + (s.checkins || 0) + ' 次' + (s.best ? ' · ' + esc(s.best) : '') + '</span></div>' +
-      (s.author ? '<div class="kv"><span>机位作者</span><span>' + (s.author.homepage && /^https?:\/\//.test(s.author.homepage) ? '<a href="' + esc(s.author.homepage) + '" target="_blank" rel="noopener">' + esc(s.author.name) + '</a>' : esc(s.author.name)) + '</span></div>' : '') +
+      (s.author ? '<div class="kv"><span>机位作者</span><span>' + (s.author.homepage && /^https?:\/\//.test(s.author.homepage) ? '<a href="' + esc(s.author.homepage) + '" target="_blank" rel="noopener noreferrer nofollow">' + esc(s.author.name) + '</a>' : esc(s.author.name)) + '</span></div>' : '') +
       '<p class="muted">来源：' + esc(s.source || '') + '</p>'
     );
     renderArrivalPrimary(s);
     bindSheet(function (act) {
       if (act === 'legal') return openDisclaimer();
+      if (act === 'report') return reportSpot(s);
       if (act === 'copy') window.JWX && window.JWX.camera(s);
       if (act === 'share') window.JWX && window.JWX.share(s);
     });
@@ -341,21 +342,29 @@
   function photoMetaHtml(s) {
     var m = s.photoMeta; if (!m) return '';
     var cam = [m.focal ? Math.round(m.focal * 10) / 10 + 'mm' : '', m.f35 ? '等效 ' + m.f35 + 'mm' + (m.f35Manual ? '（手填）' : '') : '', m.fnum ? 'f/' + Math.round(m.fnum * 10) / 10 : '', m.exposure ? (m.exposure >= 0.3 ? (+m.exposure).toFixed(1) + 's' : '1/' + Math.round(1 / m.exposure) + 's') : '', m.iso ? 'ISO ' + m.iso : ''].filter(Boolean).join(' · ');
-    var rows = [['拍摄地点', m.place], ['拍摄时间', m.time ? m.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3').slice(0, m.timeManual ? 16 : 19) + (m.timeManual ? '（作者手填）' : '') : ''], ['拍摄设备', m.device], ['相机参数', cam], ['镜头', m.lens]].filter(function (r) { return r[1]; });
+    var rows = [['拍摄地点', String(m.place || '').replace(/[0-9０-９一二三四五六七八九十百千-]+(号|弄|栋|幢|座|室|单元|楼).*$/, '')], ['拍摄时间', m.time ? m.time.replace(/^(\d+):(\d+):(\d+)/, '$1-$2-$3').slice(0, m.timeManual ? 16 : 19) + (m.timeManual ? '（作者手填）' : '') : ''], ['拍摄设备', m.device], ['相机参数', cam], ['镜头', m.lens]].filter(function (r) { return r[1]; });
     return rows.length ? '<div class="meta-card">' + rows.map(function (r) { return '<div><span>' + r[0] + '</span><b>' + esc(r[1]) + '</b></div>'; }).join('') + '</div>' : '';
   }
   // 名场面信息：来源作品、场景、台词、剧中地点 vs 实际拍摄地
-  // 免责声明与版权说明
+  // 举报：侵权、露脸、隐私、不能进入的地点，发邮件给我们核实下架
+  function reportHtml(s) { return s.rowId ? '<p class="report-row"><button class="link" data-act="report">这条内容侵权、拍到他人正脸或泄露隐私？举报</button></p>' : ''; }
+  function reportSpot(s) {
+    var mail = (window.JW_CONFIG || {}).CONTACT_EMAIL; if (!mail) return;
+    var body = '机位：' + s.name + '\n编号：' + (s.rowId || s.id) + '\n问题（侵权 / 他人正脸 / 泄露隐私 / 不能合法进入 / 其他）：\n说明：\n';
+    location.href = 'mailto:' + mail + '?subject=' + encodeURIComponent('移步到位 举报：' + s.name) + '&body=' + encodeURIComponent(body);
+  }
+  // 版权与使用说明
   function openDisclaimer() {
     var mail = (window.JW_CONFIG || {}).CONTACT_EMAIL || '';
-    openSheet('<span class="tag skill">免责声明</span><h2>免责声明与版权说明</h2><div class="legal">' +
+    openSheet('<span class="tag skill">使用说明</span><h2>版权与使用说明</h2><div class="legal">' +
       '<p><b>1. 只标地点，不搬作品。</b>“影视同款”“明星同款”“书本同款”“钞能力同款”只标注现实中可以去拍的地点和角度。本产品不收录、不存储影视剧照、明星肖像、教材插图、人民币图案等受版权或法律保护的图像；页面上的参考图均为用户本人拍摄的实景照片或示意图。</p>' +
       '<p><b>2. 名称仅作说明。</b>页面中出现的影视作品、书籍、人物、地标、品牌名称，仅用于说明拍摄地点的来源，相关著作权、商标权、肖像权等归原权利人所有。本产品与这些作品、人物及其权利人没有合作、授权或关联关系。</p>' +
       '<p><b>3. 用户发布的内容。</b>照片、帖子和路书由发布者提供。发布者应保证照片为本人拍摄或已获授权，不侵犯他人的著作权、肖像权和隐私；发布即表示同意本产品在站内展示这些内容。内容观点不代表本产品立场。</p>' +
       '<p><b>4. 肖像与隐私。</b>请勿上传含他人清晰正脸的照片做封面，拍摄时尊重他人和场所的意愿。</p>' +
       '<p><b>5. 出行安全。</b>只收录可以合法进入的地点。导航、路书、光线和奇观时间均为参考和推算，现场情况可能变化；请遵守交通规则和场所规定，注意人身安全。因前往机位产生的风险和损失，本产品不承担责任。</p>' +
-      '<p><b>6. 地图服务。</b>地图、地点搜索和步行路线由百度地图开放平台提供。</p>' +
-      '<p><b>7. 侵权投诉。</b>如果你认为某条内容侵犯了你的权利，请' + (mail ? '发邮件到 <a href="mailto:' + esc(mail) + '?subject=' + encodeURIComponent('移步到位 内容投诉') + '">' + esc(mail) + '</a>，' : '联系我们，') + '写明机位名称和权利证明，我们核实后会尽快下架。</p>' +
+      '<p><b>6. 个人信息。</b>别人能看到的只有你的昵称、个人主页和你发布的机位，邮箱不会公开。照片上传前会重新压缩，去掉里面藏着的定位、设备等信息；公开的地址只到路名。长时间不操作会自动退出登录。想删除账号和全部发布内容，发邮件给我们即可。</p>' +
+      '<p><b>7. 地图服务。</b>地图、地点搜索和步行路线由百度地图开放平台提供。</p>' +
+      '<p><b>8. 侵权投诉与举报。</b>如果你认为某条内容侵犯了你的权利，请' + (mail ? '发邮件到 <a href="mailto:' + esc(mail) + '?subject=' + encodeURIComponent('移步到位 内容投诉') + '">' + esc(mail) + '</a>，' : '联系我们，') + '写明机位名称和原因（侵权还请附上权利证明），我们核实后会尽快下架。每条网友机位下面也有“举报”入口。</p>' +
       '</div>');
   }
   function sceneHtml(s) {
@@ -363,7 +372,7 @@
     return '<div class="scene"><div class="scene-src">' + esc(r.source || '') + (r.work ? ' ·《' + esc(r.work) + '》' : '') + '</div>' +
       (r.moment ? '<div class="scene-moment">' + esc(r.moment) + '</div>' : '') +
       (r.line ? '<div class="scene-line">“' + esc(r.line) + '”</div>' : '') +
-      (r.storyPlace || r.realPlace ? '<div class="scene-place"><span>剧中</span>' + esc(r.storyPlace || '—') + '<span>实际</span>' + esc(r.realPlace || '—') + '</div>' : '') + '<p class="scene-note">作品名称仅用于说明拍摄地点，版权归原权利人所有，本产品与其无关联。<button class="link" data-act="legal">免责声明</button></p></div>';
+      (r.storyPlace || r.realPlace ? '<div class="scene-place"><span>剧中</span>' + esc(r.storyPlace || '—') + '<span>实际</span>' + esc(r.realPlace || '—') + '</div>' : '') + '<p class="scene-note">作品名称仅用于说明拍摄地点，版权归原权利人所有，本产品与其无关联。<button class="link" data-act="legal">版权与使用说明</button></p></div>';
   }
   function bindSheet(fn) {
     $('sheetBody').querySelectorAll('[data-act]').forEach(function (b) {
@@ -449,7 +458,7 @@
     bar.innerHTML = '<div class="nav-top"><span class="nav-tag">' + (NAV.live ? '步行导航中' : '演示导航') + '</span><span class="nav-left">距机位 ' + fmtM(left) + ' · 约 ' + mins + ' 分钟</span></div>' +
       '<div class="nav-step">' + esc(cur) + '</div>' +
       (st.length > 1 ? '<div class="nav-next">共 ' + st.length + ' 步 · 第 ' + (NAV.step + 1) + ' 步' + (st[NAV.step + 1] ? ' · 下一步：' + esc(st[NAV.step + 1].text) : '') + '</div>' : '') +
-      '<div class="nav-btns"><button class="btn-ghost" id="navExit">退出</button><a class="btn-ghost" id="navApp" href="' + esc(baiduAppLink(NAV.s, NAV.from)) + '" target="_blank" rel="noopener">用百度地图App</a><button class="btn-main" id="navArrive">我已到附近</button></div>';
+      '<div class="nav-btns"><button class="btn-ghost" id="navExit">退出</button><a class="btn-ghost" id="navApp" href="' + esc(baiduAppLink(NAV.s, NAV.from)) + '" target="_blank" rel="noopener noreferrer nofollow">用百度地图App</a><button class="btn-main" id="navArrive">我已到附近</button></div>';
     $('navExit').onclick = function () { stopNav(true); };
     $('navArrive').onclick = arriveNav;
   }

@@ -22,7 +22,7 @@
       [/Error sending recovery email/i, '重置邮件没能发出去（网站发信设置还没配好），请稍后再试'],
       [/Email not confirmed/i, '邮箱还没确认：请先去邮箱点确认链接（也看看垃圾箱）'],
       [/User already registered/i, '这个邮箱已经注册过了，直接登录或找回密码'],
-      [/Password should be at least/i, '密码至少 6 位'],
+      [/Password should be at least/i, '密码至少 8 位，并且同时包含字母和数字'],
       [/rate limit|too many/i, '操作太频繁，请过一会儿再试'],
       [/Unable to validate email|invalid format/i, '邮箱格式不对'],
       [/New password should be different/i, '新密码不能和旧密码一样'],

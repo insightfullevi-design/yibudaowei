@@ -119,7 +119,7 @@
       '<span class="tag skill">发布机位</span><h2>分享一个你发现的好角度</h2>' +
       (d ? '<div class="cond wait"><span class="dot"></span><div>有一份 ' + JW.esc(d.saved || '') + ' 存的草稿。<button class="link" data-act="loaddraft">继续编辑</button> · <button class="link" data-act="dropdraft">丢弃</button></div></div>' : '') +
       '<h3>1 · 照片</h3>' +
-      '<p class="tip">请<b>直接从手机相册选原图</b>，会自动读出拍摄地点、时间、设备和相机参数。拍照前请确认相机设置里的“地理位置”已打开；经过微信、小红书转发的照片会丢失这些信息。</p>' +
+      '<p class="tip">请<b>直接从手机相册选原图</b>，会自动读出拍摄地点、时间、设备和相机参数。上传前照片会重新压缩，里面藏着的定位等信息会被去掉，公开的只有你确认的站位；地址只显示到路名。拍照前请确认相机设置里的“地理位置”已打开；经过微信、小红书转发的照片会丢失这些信息。</p>' +
       '<label class="upload-drop" id="upDrop"><input type="file" accept="image/*" id="upFile" hidden><span id="upDropText">＋ 从相册选择原图</span></label>' +
       '<div id="upMeta"></div><div id="upManual"></div>' +
       '<h3>2 · 站位</h3><div id="upInfo"></div>' +
@@ -135,7 +135,7 @@
       '<h3>4 · 路书（可选）：最后一段怎么走</h3><p class="tip">从最近的地铁口或路口开始，每个转弯拍一张照片、写一句话。定位不准的地方，就靠它把人带到位。</p>' +
       '<div id="upSteps"></div><button class="btn-ghost wide" data-act="addstep">＋ 再加一步</button>' +
       '<p class="muted">发布规则：只收录能合法进入的地点；不要用含他人正脸的照片做封面；不要上传剧照、明星写真、课本插图、人民币图案等他人作品。</p>' +
-      '<label class="agree"><input type="checkbox" id="upAgree"><span>我确认照片是我本人拍摄（或已获授权），并同意<button class="link" data-act="legal">《免责声明与版权说明》</button></span></label>' +
+      '<label class="agree"><input type="checkbox" id="upAgree"><span>我确认照片是我本人拍摄（或已获授权），并同意<button class="link" data-act="legal">《版权与使用说明》</button></span></label>' +
       '<div class="btn-row publish-row"><button class="btn-ghost" data-act="draft">存草稿</button><button class="btn-main" data-act="save">发布</button></div>'
     );
     document.getElementById('sheet').classList.add('tall');
@@ -225,13 +225,19 @@
     // 用百度逆地理编码把坐标翻译成地址
     if (e.lat && !up.addr && !up.addrTried && window.BMapGL && BMapGL.Geocoder) {
       up.addrTried = true; var p0 = M.wgs2bd(e.lng, e.lat);
-      try { new BMapGL.Geocoder().getLocation(new BMapGL.Point(p0[0], p0[1]), function (r) { if (r && r.address) { up.addr = r.address; meta(); } }); } catch (er) {}
+      try { new BMapGL.Geocoder().getLocation(new BMapGL.Point(p0[0], p0[1]), function (r) { if (r && r.address) { up.addr = roadOnly(r); meta(); } }); } catch (er) {}
     }
     box.innerHTML = '<div class="meta-card">' + rows.map(function (r) { return '<div><span>' + r[0] + '</span><b>' + JW.esc(r[1]) + '</b></div>'; }).join('') + '</div>';
     // 照片里没有位置：教用户打开相机的“地理位置”，下次拍的照片就能自动定位
     if (!e.lat) box.innerHTML += '<div class="gps-help"><b>这张照片没有记录拍摄地点</b><p>这次可以用下面的“搜索 / 在地图上点选”补上。想让以后的照片自动定位，打开相机的位置记录：</p>' +
       '<ul><li><b>苹果</b>：设置 → 隐私与安全性 → 定位服务 → 相机 → 使用 App 期间</li><li><b>华为 / 荣耀</b>：相机 → 右上角设置 → 打开“地理位置”</li><li><b>小米 / 红米</b>：相机 → 设置 → 打开“保存地理位置”</li><li><b>OPPO / vivo</b>：相机 → 设置 → 打开“地理位置”或“位置信息”</li></ul>' +
       '<p class="muted">另外，经过微信、小红书转发的照片也会丢失地点，请从手机相册直接选原图。</p></div>';
+  }
+  // 公开地址只到路名：去掉门牌号、弄、栋、室，避免暴露住址
+  function roadOnly(r) {
+    var c = r.addressComponents || {};
+    var a = c.district || c.street ? [c.city, c.district, c.street].filter(Boolean).join('') : String(r.address || '');
+    return a.replace(/[0-9０-９一二三四五六七八九十百千-]+(号|弄|栋|幢|座|室|单元|楼).*$/, '');
   }
   // 在地图上点选：上传卡片降下去，点地图放点，点 ✓ 锁定后卡片回来
   // 在地图上定站位和朝向：两步走。第 1 步“站在哪”（可以搜地点），第 2 步“朝哪拍”（搜你拍的对象，或点地图上它的位置）
@@ -378,9 +384,12 @@
     var c = document.querySelector('#sheetBody .cond.wait'); if (c) c.remove();
     renderSteps(); renderTags(); drawUp(); info(); meta(); manual(); JW.toast('已载入草稿');
   }
+  function strongPw(pw) { return pw.length >= 8 && /[A-Za-z]/.test(pw) && /\d/.test(pw); }
   function field(label, html) { return '<label class="field"><span>' + label + '</span>' + html + '</label>'; }
   function onPhoto(e) {
     var f = e.target.files[0]; if (!f) return;
+    if (!/^image\//.test(f.type || 'image/')) return JW.toast('请选择图片文件');
+    if (f.size > 40 * 1024 * 1024) return JW.toast('这张图超过 40MB，换一张试试');
     var exif = {};
     f.slice(0, 256 * 1024).arrayBuffer().then(function (buf) { try { exif = readExif(buf); } catch (err) { exif = {}; } return readAsDataURL(f); })
       .then(function (url) { return shrink(url, 1280, 0.8); })
@@ -416,7 +425,7 @@
     if (!up.photo) return JW.toast('先从相册选一张原图');
     if (!up.pos) return JW.toast('还不知道站位：用你现在的位置，或在地图上点选');
     if (!name) return JW.toast('写个标题（机位名称）');
-    if (!$('upAgree').checked) { JW.toast('请先勾选：照片是本人拍摄，并同意免责声明'); $('upAgree').parentNode.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+    if (!$('upAgree').checked) { JW.toast('请先勾选：照片是本人拍摄，并同意版权与使用说明'); $('upAgree').parentNode.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
     if (CLOUD && !Cloud.me()) { JW.toast('发布前请先登录'); return openAccount('login', '登录后发布的机位所有人都能看到，并署上你的名字'); }
     var body = $('upBody').value.trim(), e = up.exif || {};
     var pending = $('upTagIn').value.trim(); if (pending) { addTag(pending); $('upTagIn').value = ''; }
@@ -724,7 +733,7 @@
     tab = tab || 'login';
     var tabs = '<div class="seg" id="acTabs"><button data-v="login" class="' + (tab === 'login' ? 'on' : '') + '">登录</button><button data-v="signup" class="' + (tab === 'signup' ? 'on' : '') + '">注册</button><button data-v="forgot" class="' + (tab === 'forgot' ? 'on' : '') + '">忘记密码</button></div>';
     var body = tab === 'signup'
-      ? field('邮箱', '<input id="acEmail" type="email" autocomplete="email" placeholder="用于确认账号和找回密码">') + field('密码（至少 6 位）', '<input id="acPw" type="password" autocomplete="new-password">') +
+      ? field('邮箱', '<input id="acEmail" type="email" autocomplete="email" placeholder="用于确认账号和找回密码">') + field('密码（至少 8 位，含字母和数字）', '<input id="acPw" type="password" autocomplete="new-password">') +
         field('昵称', '<input id="acNick" placeholder="会显示在你上传的机位上">') + field('个人主页（可选）', '<input id="acHome" placeholder="可以直接粘贴小红书的分享文案，会自动取出链接">') +
         '<div class="btn-row"><button class="btn-main" data-act="signup">注册</button></div><p class="muted">注册后会收到一封确认邮件，点里面的链接就完成了（没收到的话看看垃圾箱）。</p>'
       : tab === 'forgot'
@@ -747,7 +756,7 @@
       if (act === 'signup') {
         var nick = $('acNick').value.trim(), home = $('acHome').value.trim();
         if (!em || !pw || !nick) return msg('邮箱、密码和昵称都要填', 'wait');
-        if (pw.length < 6) return msg('密码至少 6 位', 'wait');
+        if (!strongPw(pw)) return msg('密码至少 8 位，并且同时包含字母和数字', 'wait');
         busy(act, true);
         Cloud.signUp(em, pw, nick, home).then(function (r) {
           if (r.loggedIn) { JW.toast('注册成功'); afterLogin(); }
@@ -771,10 +780,10 @@
     });
   }
   function openSetPassword() {
-    JW.openSheet('<span class="tag skill">重置密码</span><h2>设置一个新密码</h2>' + field('新密码（至少 6 位）', '<input id="acNew" type="password" autocomplete="new-password">') +
+    JW.openSheet('<span class="tag skill">重置密码</span><h2>设置一个新密码</h2>' + field('新密码（至少 8 位，含字母和数字）', '<input id="acNew" type="password" autocomplete="new-password">') +
       '<div class="btn-row"><button class="btn-main" data-act="setpw">保存新密码</button></div><div id="acMsg"></div>');
     JW.bindSheet(function () {
-      var pw = $('acNew').value; if (pw.length < 6) { JW.toast('密码至少 6 位'); return; }
+      var pw = $('acNew').value; if (!strongPw(pw)) { JW.toast('密码至少 8 位，并且同时包含字母和数字'); return; }
       Cloud.updatePassword(pw).then(function () { JW.toast('新密码已保存，已登录'); afterLogin(); }).catch(function (e) { JW.toast(e.message, 4000); });
     });
   }
