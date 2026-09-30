@@ -118,8 +118,8 @@
   }
 
   // ---------------- 底部卡片 ----------------
-  function openSheet(html) { $('sheetBody').innerHTML = html; $('sheet').classList.add('open'); $('sheet').setAttribute('aria-hidden', 'false'); $('sheetBody').scrollTop = 0; }
-  function closeSheet() { $('sheet').classList.remove('open'); $('sheet').setAttribute('aria-hidden', 'true'); clearSel(); }
+  function openSheet(html) { $('sheet').classList.remove('tall'); $('sheetBody').innerHTML = html; $('sheet').classList.add('open'); $('sheet').setAttribute('aria-hidden', 'false'); $('sheetBody').scrollTop = 0; }
+  function closeSheet() { $('sheet').classList.remove('open', 'tall'); $('sheet').setAttribute('aria-hidden', 'true'); clearSel(); }
 
   function relation(heading, sunAz) {
     if (heading == null) return '';
@@ -131,15 +131,16 @@
     var s = spotById[id]; if (!s) return;
     clearSel(); highlight(s.id, s.type, s.lng, s.lat); drawView(s);
     var sun = drawSun(s), lc = lightCheck(s), t = lc.times, tech = s.technique || {};
-    map.flyTo(s.lng, s.lat, s.collection ? 12 : 17);
+    map.flyTo(s.lng, s.lat, s.collection === 'rmb' ? 12 : 17);
     var techRows = [['手机姿势', tech.pose], ['镜头', tech.lens], ['朝向', tech.facing], ['后期', tech.post], ['道具', tech.prop]]
       .filter(function (r) { return r[1]; }).map(function (r) { return '<div><b>' + r[0] + '</b>' + esc(r[1]) + '</div>'; }).join('');
-    var guide = (s.guide || []).map(function (g) { return '<li>' + esc(g.text) + '</li>'; }).join('');
+    var guide = (s.guide || []).map(function (g) { return '<li>' + (g.photo ? '<img class="step-img" loading="lazy" src="' + esc(g.photo) + '" alt="">' : '') + esc(g.text) + '</li>'; }).join('');
     var rel = relation(s.heading, sun.az);
     openSheet(
       '<span class="tag ' + s.type + '">' + TYPE_NAME[s.type] + '</span>' + (s.marker ? '<span class="tag soft">' + esc(s.marker) + '</span>' : '') +
       (s.collection ? '<span class="tag soft">' + esc(DATA.collections[s.collection].name) + '</span>' : '') +
       '<h2>' + esc(s.name) + '</h2><div class="muted">' + esc(s.area) + (s.heading != null ? ' · 镜头朝向 ' + Math.round(s.heading) + '°' : ' · 镜头朝天') + '</div>' +
+      '<div class="rx-row" data-rxbox="' + esc(s.id) + '">' + (window.Social ? window.Social.buttons(s.id) : '') + '</div>' +
       '<div class="cover">' + coverHtml(s) + '</div>' +
       '<p>' + esc(s.summary) + '</p>' + sceneHtml(s) +
       '<div class="cond ' + lc.cls + '"><span class="dot"></span><div>' + esc(lc.text) + (s.lightNote ? '<br><span class="muted">' + esc(s.lightNote) + '</span>' : '') + '</div></div>' +
@@ -513,7 +514,7 @@
   // ---------------- 启动 ----------------
   function start(useBaidu, reason) {
     if (CFG.BRAND) { document.querySelector('.brand-name').textContent = CFG.BRAND; document.title = CFG.BRAND + ' · ' + (CFG.SLOGAN || ''); }
-    if (CFG.SLOGAN) document.querySelector('.brand-sub').textContent = CFG.SLOGAN;
+    var bs = document.querySelector('.brand-sub'); if (CFG.SLOGAN && bs) bs.textContent = CFG.SLOGAN;
     map = M.create($('map'), CFG.CENTER, CFG.ZOOM, useBaidu);
     $('statusPill').textContent = useBaidu ? '百度地图已连接' : '离线预览 · ' + (reason || '');
     drawMarkers();

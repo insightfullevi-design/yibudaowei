@@ -120,6 +120,11 @@
     return fresh().then(function () { return req('/rest/v1/checkins', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ user_id: me().id, spot_id: spotId, data: data }) }); })
       .then(function (r) { return r[0]; });
   }
+  // 点赞与收藏：一行一条（谁、哪个机位、like 或 fav）
+  function listReactions() { return req('/rest/v1/reactions?select=user_id,spot_id,kind&limit=5000', { auth: false }); }
+  function addReaction(spotId, kind) { return fresh().then(function () { return req('/rest/v1/reactions', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify({ user_id: me().id, spot_id: spotId, kind: kind }) }); }); }
+  function delReaction(spotId, kind) { return fresh().then(function () { return req('/rest/v1/reactions?user_id=eq.' + me().id + '&spot_id=eq.' + encodeURIComponent(spotId) + '&kind=eq.' + kind, { method: 'DELETE' }); }); }
+
   // 上传照片到“photos/用户编号/时间.jpg”，返回公开网址
   function uploadPhoto(dataUrl) {
     return fresh().then(function () {
@@ -138,6 +143,7 @@
     enabled: enabled, site: SITE, get session() { return session; }, me: me, onChange: function (f) { listeners.push(f); },
     fresh: fresh, signUp: signUp, signIn: signIn, signOut: signOut, resetPassword: resetPassword, updatePassword: updatePassword, resendConfirm: resendConfirm,
     consumeHash: consumeHash, profile: profile, saveProfile: saveProfile, profiles: profiles,
-    listSpots: listSpots, addSpot: addSpot, deleteSpot: deleteSpot, listCheckins: listCheckins, addCheckin: addCheckin, uploadPhoto: uploadPhoto
+    listSpots: listSpots, addSpot: addSpot, deleteSpot: deleteSpot, listCheckins: listCheckins, addCheckin: addCheckin, uploadPhoto: uploadPhoto,
+    listReactions: listReactions, addReaction: addReaction, delReaction: delReaction
   };
 })();

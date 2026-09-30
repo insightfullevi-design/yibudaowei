@@ -254,9 +254,10 @@ window.JW_DATA = {
   ],
 
   collections: {
-    film: { name: '影视取景地', desc: '剧里的名场面，就在你路过的街角。' },
-    textbook: { name: '课本里的世界', desc: '举起课本，对齐封面上的那个远方。' },
-    rmb: { name: '人民币里的中国', desc: '集齐 5 张，点亮全国地图。' }
+    film: { name: '影视同款', desc: '剧里的名场面，就在你路过的街角。' },
+    rmb: { name: '人民币里的中国', desc: '集齐 5 张，点亮全国地图。' },
+    textbook: { name: '地球 online', desc: '举起课本对齐封面上的远方，参与藏书接力。' },
+    landmark: { name: '热门地标打卡', desc: '大家都在拍的地标，换个站位拍出不一样。' }
   },
 
   routes: [
@@ -297,3 +298,8 @@ window.JW_DATA = {
     }
   ]
 };
+
+// 热门地标打卡：把这些机位归进“热门地标”专题
+['mirror', 'lounge', 'ring', 'sticker', 'snowking', 'liziba', 'zootopia'].forEach(function (id) {
+  window.JW_DATA.spots.forEach(function (s) { if (s.id === id && !s.collection) s.collection = 'landmark'; });
+});
